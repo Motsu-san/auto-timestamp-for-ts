@@ -14,14 +14,12 @@ from playwright.sync_api._generated import *
 import module_auto_timestamp as modat
 import const
 
-# pip install re time nest_asyncio dotenv playwright
-
 args = sys.argv
 
 nest_asyncio.apply()
 
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
-GMAIL_ADDRESS = const.GMAIL_ADDRESS
+ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 PATH_WORKDAY = const.PATH_WORKDAY
 PATH_TIMESTAMP_IN = const.PATH_TIMESTAMP_IN
@@ -32,7 +30,7 @@ TIME_DURATION_DISCREPANCY = const.TIME_DURATION_DISCREPANCY
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 DISCREPANCY_REASON = const.DISCREPANCY_REASON
 PATH_WAITING = const.PATH_WAITING
-LOG_FILE_PATH = const.LOG_DIR + "auto_timestamp_inout.log"
+LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 if len(args) < 2:
     is_punch_out = False
@@ -107,7 +105,7 @@ if __name__ == "__main__":
     # login when the account check page appears
     page_url = page.url
     if "accounts.google.com" in page_url:
-        modat.login(page, GMAIL_ADDRESS)
+        modat.login(page, ACCOUNT_ADDRESS)
 
     try:
         page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
@@ -130,9 +128,6 @@ if __name__ == "__main__":
             time.sleep(3)
         except:
             logger.info("Could not click the selector. Time has expired.")
-        # wait_selector = page.getBtText('打刻しています')
-        # page.wait_for_selector(wait_selector, timeout=TIMEOUT_DEFAULT)
-        # page.wait_for_selector(wait_selector, state="hidden")
 
         touch_file = Path(make_file)
         touch_file.touch()
@@ -146,11 +141,6 @@ if __name__ == "__main__":
         logger.info("There is not WAIT file")
 
     logger.info(selector_type + " finished")
-
-    #
-    # if is_wat_for_sleep:
-    #     time.sleep(TIME_DURATION_DISCREPANCY)
-    #     is_needed_reason_input = True
 
     # Input reason of discrepancy
     if is_needed_reason_input:

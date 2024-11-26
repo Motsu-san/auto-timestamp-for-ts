@@ -12,20 +12,13 @@ import const
 from const import ConstRestTimePattern, ConstPersonHour
 import module_auto_timestamp as modat
 
-# pip install re time nest_asyncio dotenv playwright
-
 nest_asyncio.apply()
 
 args = sys.argv
 
-#     5.前項に基づき、半日単位で取得した場合の始業および終業時刻は次の通りとする。
-# 午前休暇 午後2時~午後6時
-# 午後休暇 午前9時~午後1時
-# https://drive.google.com/file/d/1g7ivADu5etyI7_V3a2aq7oPjpRfpdaKV/view
-
 # CONST parameter
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
-GMAIL_ADDRESS = const.GMAIL_ADDRESS
+ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
@@ -80,11 +73,8 @@ if __name__ == "__main__":
 
     # login when the account check page appears
     page_url = page.url
-    # text_exists = page.is_visible('text="Choose an account"')
-    # if "accounts.google.com" in page_url and text_exists:
-    #     modat.login(page, GMAIL_ADDRESS)
     if "accounts.google.com" in page_url:
-        modat.login(page, GMAIL_ADDRESS)
+        modat.login(page, ACCOUNT_ADDRESS)
 
     frame = page.wait_for_selector("iframe").content_frame()
 
@@ -223,7 +213,3 @@ if __name__ == "__main__":
                 )
             else:
                 logger.info("person hour has already been input")
-        # input_work_time(frame, date_row)
-        # clear_work_time(frame, date_row)
-
-    # # browser.close()
