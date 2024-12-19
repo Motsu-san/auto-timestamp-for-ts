@@ -65,29 +65,54 @@ if __name__ == "__main__":
     if is_waiting:
         logger.info("previous process existing, finish.")
         sys.exit()
-    elif is_workday and not is_timestamp_in:
-        btn_selector = "input#btnStInput"
-        selector_type = "punch-in"
-        make_file = PATH_TIMESTAMP_IN
-        start_time_stamp = datetime.datetime(
-            current_time.year, current_time.month, current_time.day, hour=6, minute=0
-        )
-        wait_time = start_time_stamp - current_time
-        wait_second = math.ceil(wait_time.total_seconds())
-        if wait_time.total_seconds() > 0:
-            touch_file = Path(PATH_WAITING)
-            touch_file.touch()
-            time.sleep(wait_time.total_seconds())
-        if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
-            is_needed_reason_input = True
-    elif is_workday and is_timestamp_in and not is_timestamp_out and is_punch_out:
-        btn_selector = "input#btnEtInput"
-        selector_type = "punch-out"
-        make_file = PATH_TIMESTAMP_OUT
-        is_wait_for_sleep = True
-    else:
-        logger.info("Not needed to punch in/out, finish.")
+
+    if not is_workday:
+        logger.info("Not workday")
         sys.exit()
+
+    if not is_punch_out:
+        if not is_timestamp_in:
+            btn_selector = "input#btnStInput"
+            selector_type = "punch-in"
+            make_file = PATH_TIMESTAMP_IN
+            start_time_stamp = datetime.datetime(
+                current_time.year, current_time.month, current_time.day, hour=6, minute=0
+            )
+            wait_time = start_time_stamp - current_time
+            wait_second = math.ceil(wait_time.total_seconds())
+            if wait_time.total_seconds() > 0:
+                touch_file = Path(PATH_WAITING)
+                touch_file.touch()
+                time.sleep(wait_time.total_seconds())
+            if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
+                is_needed_reason_input = True
+        else:
+            logger.info("Has already punch in")
+            sys.exit()
+    else:
+        if is_timestamp_in and not is_timestamp_out:
+            btn_selector = "input#btnEtInput"
+            selector_type = "punch-out"
+            make_file = PATH_TIMESTAMP_OUT
+            is_wait_for_sleep = True
+        elif is_timestamp_in and is_timestamp_out:
+            logger.info("Has already punch out")
+            sys.exit()
+        else:
+            logger.info("There is something wrong")
+            logger.info("===== inputs =====")
+            logger.info(f"{is_waiting=}")
+            logger.info(f"{is_workday=}")
+            logger.info(f"{is_punch_out=}")
+            logger.info(f"{is_timestamp_in=}")
+            logger.info(f"{is_timestamp_out=}")
+            logger.info("===== outputs =====")
+            logger.info(f"{btn_selector=}")
+            logger.info(f"{selector_type=}")
+            logger.info(f"{make_file=}")
+            logger.info(f"{os.path.isfile(PATH_WAITING)=}")
+            logger.info(f"{is_needed_reason_input=}")
+            sys.exit()
 
     playwright = sync_playwright().start()
 
