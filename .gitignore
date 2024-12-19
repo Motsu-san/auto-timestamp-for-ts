@@ -2,3 +2,8 @@ script/holiday.csv
 script/log/*
 script/data/*
 script/const_pri.json
+script/TIMESTAMPED_IN
+script/TIMESTAMPED_OUT
+script/WORKDAY
+script/WAITING
+script/__pycache__/*
