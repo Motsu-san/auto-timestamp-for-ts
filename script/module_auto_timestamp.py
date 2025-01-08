@@ -46,7 +46,7 @@ def login(page: Page, gmail_address: str):
         # Inform the user to enter the password manually
         logger.info("Please enter your password in the browser.")
         # Wait for a specific element that appears after login
-        page.wait_for_selector("ts-top-logo")
+        page.get_by_title('TeamSpirit').wait_for(state='visible')
     # Wait for two-phase authentication
     # with page.expect_navigation():
     #     pass
