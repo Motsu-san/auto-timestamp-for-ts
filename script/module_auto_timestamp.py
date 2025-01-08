@@ -27,31 +27,12 @@ logger.setLevel("DEBUG")
 def login(page: Page, gmail_address: str):
     page.click('button[type="button"]:has-text("次へ")')
     page.wait_for_selector('input[type="password"]', state="visible")
-    # page.wait_for_navigation()
-    # with page.expect_navigation():
-    #     if identifier_box := page.query_selector('input[name="identifier"]'):
-    #         logger.info("Needed to input my mail")
-    #         identifier_box.fill(gmail_address)
-    #         identifier_box.press("Enter")
-    #     elif identifier_box := page.query_selector(
-    #         f'div[data-identifier="{gmail_address}"]'
-    #     ):
-    #         logger.info("There is my account")
-    #         page.query_selector(f'div[data-identifier="{gmail_address}"]').click()
-    #     else:
-    #         logger.info("There is no account")
-    #         page.query_selector("#identifierNext").click()
 
     with page.expect_navigation():
         # Inform the user to enter the password manually
         logger.info("Please enter your password in the browser.")
         # Wait for a specific element that appears after login
         page.get_by_title('TeamSpirit').wait_for(state='visible')
-    # Wait for two-phase authentication
-    # with page.expect_navigation():
-    #     pass
-
-    # <div class="VfPpkd-RLmnJb"></div>
 
 
 def does_selector_exist(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):
