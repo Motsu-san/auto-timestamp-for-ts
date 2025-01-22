@@ -24,6 +24,7 @@ if exist WORKDAY (
         del TIMESTAMPED_IN
         del TIMESTAMPED_OUT
         del WORKDAY
+        del REASON_INPUT
         call check_holiday.bat
     )
 ) else (

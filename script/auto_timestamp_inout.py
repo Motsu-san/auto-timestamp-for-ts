@@ -30,6 +30,7 @@ TIME_DURATION_DISCREPANCY = const.TIME_DURATION_DISCREPANCY
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 DISCREPANCY_REASON = const.DISCREPANCY_REASON
 PATH_WAITING = const.PATH_WAITING
+PATH_REASON_INPUT = const.REASON_INPUT
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 if len(args) < 2:
@@ -85,7 +86,10 @@ if __name__ == "__main__":
                 touch_file.touch()
                 time.sleep(wait_time.total_seconds())
             if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
+                # Input reason of discrepancy
                 is_needed_reason_input = True
+                touch_file = Path(PATH_REASON_INPUT)
+                touch_file.touch()
         else:
             logger.info("Has already punch in")
             sys.exit()
@@ -166,55 +170,3 @@ if __name__ == "__main__":
         logger.info("There is not WAIT file")
 
     logger.info(selector_type + " finished")
-
-    # Input reason of discrepancy
-    if is_needed_reason_input:
-        page.goto(TS_ATTENDANCE_SHEET_PAGE_URL)
-
-        frame = page.wait_for_selector("iframe").content_frame()
-
-        logger.info(f"{frame.wait_for_selector('td')=}")
-
-        info_panel_selector = 'span[data-dojo-attach-point="closeButtonNode"]'
-        if modat.does_selector_exist(frame, info_panel_selector, TIMEOUT_DEFAULT):
-            logger.info("info_panel_appeared")
-            frame.wait_for_selector(info_panel_selector).click()
-        else:
-            logger.info("No_panel")
-
-        # Initialize cnt and flags
-        cnt_tuesday = 0
-        today = args[2]
-        # Get values of this year and month
-        year_month = frame.input_value("#yearMonthList")
-        year = year_month[:4]
-        month = year_month[4:6]
-        # Input data in every date row
-        for date_row in frame.query_selector_all('tr[id*="dateRow"]'):
-            # Get a value of day
-            logger.info(f"{date_row.text_content()=}")
-            date_row_text = str(date_row.text_content())
-            idx = date_row_text.find("/")
-            if idx == -1:
-                is_first_workday = False
-            else:
-                date_row_text = date_row_text[idx + len("/") :]
-                is_first_workday = True
-            l = re.split("[月火水木金土日]", date_row_text)
-            day = l[0].zfill(2)
-            year_month_day = year + "-" + month + "-" + day
-            # Skip if not today
-            logger.info(f"{year_month_day=}")
-            if not (today == year_month_day):
-                logger.info("Skip if not today")
-                continue
-            # Set selector
-            daily_note_selector = "td#dailyNoteIcon" + year_month_day
-            logger.debug(f"{daily_note_selector=}")
-            # input reason
-            frame.click(daily_note_selector)
-            frame.wait_for_selector(
-                "textarea#dialogNoteText2", timeout=TIMEOUT_DEFAULT
-            ).fill(DISCREPANCY_REASON)
-            frame.click("button#dialogNoteOk")
-            logger.info("The discrepancy reason has been input")

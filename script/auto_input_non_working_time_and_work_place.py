@@ -1,4 +1,5 @@
 import re
+import os
 import sys
 import datetime
 from logging import StreamHandler, basicConfig, getLogger, handlers
@@ -22,6 +23,8 @@ ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
+PATH_REASON_INPUT = const.PATH_REASON_INPUT
+DISCREPANCY_REASON = const.DISCREPANCY_REASON
 
 date_pattern = r'^(\d{4}-\d{2}-\d{2})$' # YYYY-MM-DDの形式と完全一致するかチェック
 if len(args) < 2:
@@ -57,6 +60,8 @@ if __name__ == "__main__":
     basicConfig(handlers=[handler, rotatingfilehandler])
     basicConfig(level="DEBUG")
     logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+
+    is_needed_reason_input = os.path.isfile(PATH_REASON_INPUT)
 
     playwright = sync_playwright().start()
 
@@ -213,3 +218,15 @@ if __name__ == "__main__":
                 )
             else:
                 logger.info("person hour has already been input")
+
+            if is_needed_reason_input:
+                # Set selector
+                daily_note_selector = "td#dailyNoteIcon" + year_month_day
+                logger.debug(f"{daily_note_selector=}")
+                # input reason
+                frame.click(daily_note_selector)
+                frame.wait_for_selector(
+                    "textarea#dialogNoteText2", timeout=TIMEOUT_DEFAULT
+                ).fill(DISCREPANCY_REASON)
+                frame.click("button#dialogNoteOk")
+                logger.info("The discrepancy reason has been input")
