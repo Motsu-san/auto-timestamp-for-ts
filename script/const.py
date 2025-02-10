@@ -34,8 +34,8 @@ class ConstRestTimePattern:
 
     def __init__(self, arg):
         if arg == "Friday":
-            self.START_REST_TIME2 = "06:45"
-            self.END_REST_TIME2 = "09:30"
+            self.START_REST_TIME2 = "06:30"
+            self.END_REST_TIME2 = "09:15"
             self.START_REST_TIME3 = "17:15"
             self.END_REST_TIME3 = "20:15"
         else:
