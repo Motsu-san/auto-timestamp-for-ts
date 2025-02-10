@@ -59,10 +59,6 @@ if "%ERRORLEVEL%"=="0" (
 
 :: 年末年始（12月31日～1月3日）なら 0 を返却して終了.
 :: 月日を2桁に固定するため、既定の桁数に削り(右から2桁)、出力.
-set d=0%d%
-set m=0%m%
-set TUKIHI=%m:~-2%%d:~-2%
-
 :: 都合に合わせて休日を自由に調整可能(祝日に関わらず毎年固定の休日)
 set TRUE_FALSE=FALSE
 IF %TUKIHI% equ 1229 set TRUE_FALSE=TRUE
@@ -106,6 +102,8 @@ if "%d:~0,1%"=="0" (set d=%d:~1%)
 set TODAY_FORMATED=%h%%y%/%m%/%d%
 echo %TODAY_FORMATED%
 
+set TUKIHI=%TODAY:~5,2%%TODAY:~8,2%
+echo %TUKIHI%
 
 :: 1月と2月は13月と14月に変換.
 if %m%==1 ( set /a y-=1&set /a m+=12 )
