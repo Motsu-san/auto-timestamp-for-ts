@@ -53,7 +53,7 @@ if %WEEK% equ 0 (
 :: CSVに祝日として登録されていれば 0 を返却して終了.
 findstr %TODAY_FORMATED%, %HOLIDAY_FILE%
 if "%ERRORLEVEL%"=="0" (
-    echo "national holiday"
+    echo "national holiday or paid leave"
     exit /b 0
 )
 
