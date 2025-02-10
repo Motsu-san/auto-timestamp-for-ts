@@ -50,8 +50,6 @@ if %WEEK% equ 0 (
 )
 
 :: set_weekで操作した日付表現をcsvに合わせる.
-set TODAY_FORMATED=%y%/%m%/%d%
-
 :: CSVに祝日として登録されていれば 0 を返却して終了.
 findstr %TODAY_FORMATED%, %HOLIDAY_FILE%
 if "%ERRORLEVEL%"=="0" (
@@ -104,6 +102,10 @@ if "%h:~0,1%"=="0" (set h=%h:~1%)
 if "%y:~0,1%"=="0" (set y=%y:~1%)
 if "%m:~0,1%"=="0" (set m=%m:~1%)
 if "%d:~0,1%"=="0" (set d=%d:~1%)
+
+set TODAY_FORMATED=%h%%y%/%m%/%d%
+echo %TODAY_FORMATED%
+
 
 :: 1月と2月は13月と14月に変換.
 if %m%==1 ( set /a y-=1&set /a m+=12 )
