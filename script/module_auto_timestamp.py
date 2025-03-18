@@ -112,7 +112,7 @@ def input_non_work_time(
     td_end_time = string_to_datetime(td_end)
     # Check if rest time input is needed
     is_needed_rest2_input = td_start_time < string_to_datetime(const.START_REST_TIME2)
-    is_needed_rest3_input = string_to_datetime(const.END_REST_TIME3) <= td_end_time
+    is_needed_rest3_input = string_to_datetime(const.END_REST_TIME3) < td_end_time
     # Check if the day is a am/pm paid holiday
     is_ampm_paid_holiday = (
         string_to_datetime(START_REST_TIME_DEFAULT) <= td_start_time
