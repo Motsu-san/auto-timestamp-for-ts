@@ -24,7 +24,6 @@ WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
-DISCREPANCY_REASON = const.DISCREPANCY_REASON
 
 date_pattern = r'^(\d{4}-\d{2}-\d{2})$' # YYYY-MM-DDの形式と完全一致するかチェック
 if len(args) < 2:
@@ -204,6 +203,22 @@ if __name__ == "__main__":
                         f"{"Non working time is not needed to be input. skipping"}"
                     )
 
+            # Input a reason for discrepancy when it is alerted
+            td_discrepancy_alert = tds[7]
+            selector_discrepancy_alert = "div.pp_base.pp_acc_02"
+            if modat.does_selector_exist(td_discrepancy_alert, selector_discrepancy_alert, 100):
+                logger.info("start inputting a reason for discrepancy")
+                frame.click(selector_discrepancy_alert)
+                # Select option from the discrepancy reason dropdown
+                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
+                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
+                frame.locator('//table[2]/tbody/tr/td[2]/div[1]/select').click()
+                frame.locator('//table[2]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
+                frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
+                frame.get_by_role("button", name="登録").click()
+            else:
+                logger.info("No discrepancy alert")
+
             # Input person-hour when it is not consisted with actual working time
             td_person_hour = tds[8]
             td_person_hour_text = td_person_hour.text_content()
@@ -221,12 +236,13 @@ if __name__ == "__main__":
 
             if is_needed_reason_input:
                 # Set selector
-                daily_note_selector = "td#dailyNoteIcon" + year_month_day
-                logger.debug(f"{daily_note_selector=}")
-                # input reason
-                frame.click(daily_note_selector)
-                frame.wait_for_selector(
-                    "textarea#dialogNoteText2", timeout=TIMEOUT_DEFAULT
-                ).fill(DISCREPANCY_REASON)
-                frame.click("button#dialogNoteOk")
+                daily_access_selector = "td#dailyAccsCell" + year_month_day
+                logger.debug(f"{daily_access_selector=}")
+                # Select option from the discrepancy reason dropdown
+                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
+                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
+                frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
+                frame.get_by_role("button", name="登録").click()
                 logger.info("The discrepancy reason has been input")
+            else:
+                logger.info("Not input the discrepancy reason")
