@@ -61,12 +61,17 @@ if __name__ == "__main__":
     logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     if args.punch_in and args.punch_out:
-        logger.info("Please select either option '-i' or '-o'")
+        logger.error("Please select either option '-i' or '-o'")
         sys.exit()
     elif args.punch_out:
         logger.info("Punch-out mode")
     else:
         logger.info("Punch-in mode")
+
+    if args.debug:
+        is_view_window = True
+    else:
+        is_view_window = False
 
     is_workday = os.path.isfile(PATH_WORKDAY)
     is_timestamp_in = os.path.isfile(PATH_TIMESTAMP_IN)
@@ -128,12 +133,19 @@ if __name__ == "__main__":
 
     playwright = sync_playwright().start()
 
-    user_data_dir = Path("data")
+    user_data_dir = Path("inout")
+
+    if is_view_window:
+        browser_position='--window-position=0,0'
+    else:
+        browser_position='--window-position=3000,3000'
 
     browser = playwright.chromium.launch_persistent_context(
         headless=False,
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
+        no_viewport=False,
+        args=[browser_position]
     )
     page = browser.pages[0]
 

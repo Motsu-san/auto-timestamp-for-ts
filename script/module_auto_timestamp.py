@@ -21,10 +21,30 @@ END_REST_TIME_DEFAULT = "13:00"
 ID_OFFLINE_AND_REMOTE_WORK = "a25A70000000iuAIAQ"  #  出社+テレワーク
 
 logger = getLogger(__name__)
-logger.setLevel("DEBUG")
+logger.setLevel("INFO")
 
 
 def login(page: Page, gmail_address: str):
+    logger.info("Start login")
+    # CDPセッションを作成
+    client = page.context.new_cdp_session(page)
+
+    # 現在のウィンドウのIDを取得
+    windows = client.send("Browser.getWindowForTarget")
+    window_id = windows["windowId"]
+
+    # ウィンドウを画面内に移動
+    client.send("Browser.setWindowBounds", {
+        "windowId": window_id,
+        "bounds": {
+            "left": 100,     # 画面左から100px
+            "top": 100,      # 画面上から100px
+            "width": 1920,   # 幅
+            "height": 1280    # 高さ
+        }
+    })
+
+    page.bring_to_front()  # ログイン時にウィンドウを前面に表示
     page.click('button[type="button"]:has-text("次へ")')
     page.wait_for_selector('input[type="password"]', state="visible")
 
@@ -33,6 +53,19 @@ def login(page: Page, gmail_address: str):
         logger.info("Please enter your password in the browser.")
         # Wait for a specific element that appears after login
         page.get_by_title('TeamSpirit').wait_for(state='visible')
+
+    # ウィンドウを画面外に移動
+    client.send("Browser.setWindowBounds", {
+        "windowId": window_id,
+        "bounds": {
+            "left": 3000,     # 画面左から100px
+            "top": 3000,      # 画面上から100px
+            "width": 1920,   # 幅
+            "height": 1280    # 高さ
+        }
+    })
+
+    page.evaluate("window.blur()")  # フォーカスを外す
 
 
 def does_selector_exist(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):
