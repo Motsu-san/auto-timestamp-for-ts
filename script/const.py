@@ -26,21 +26,15 @@ DISCREPANCY_REASON = "①"
 PATH_REASON_INPUT = "REASON_INPUT"
 
 class ConstRestTimePattern:
-    # def __init__(self):
-    #     self.START_REST_TIME2 = "07:15"
-    #     self.END_REST_TIME2 = "08:45"
-    #     self.START_REST_TIME3 = "18:00"
-    #     self.END_REST_TIME3 = "20:00"
-
     def __init__(self, arg):
         if arg == "Friday":
             self.START_REST_TIME2 = "06:30"
-            self.END_REST_TIME2 = "09:15"
-            self.START_REST_TIME3 = "17:15"
-            self.END_REST_TIME3 = "20:15"
+            self.END_REST_TIME2 = "09:30"
+            self.START_REST_TIME3 = "17:00"
+            self.END_REST_TIME3 = "20:00"
         else:
             self.START_REST_TIME2 = "06:30"
-            self.END_REST_TIME2 = "08:15"
+            self.END_REST_TIME2 = "08:30"
             self.START_REST_TIME3 = "18:15"
             self.END_REST_TIME3 = "20:15"
 
