@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
     playwright = sync_playwright().start()
 
-    user_data_dir = Path("data")
+    user_data_dir = Path("working_time")
 
     if is_view_window:
         browser_position='--window-position=0,0'
