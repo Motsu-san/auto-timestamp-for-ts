@@ -4,6 +4,7 @@ import time
 import datetime
 import math
 import re
+import argparse
 from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
 
@@ -14,7 +15,14 @@ from playwright.sync_api._generated import *
 import module_auto_timestamp as modat
 import const
 
-args = sys.argv
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--punch_in", action="store_true",
+                    help="run in punch-in mode")
+parser.add_argument("-o", "--punch_out", action="store_true",
+                    help="run in punch-out mode")
+parser.add_argument("-d", "--debug", action="store_true",
+                    help="output logs with debug messages")
+args = parser.parse_args()
 
 nest_asyncio.apply()
 
@@ -32,13 +40,6 @@ PATH_WAITING = const.PATH_WAITING
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
-if len(args) < 2:
-    is_punch_out = False
-elif args[1] == "1":
-    is_punch_out = True
-else:
-    is_punch_out = False
-
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -51,10 +52,21 @@ rotatingfilehandler = handlers.RotatingFileHandler(
 
 if __name__ == "__main__":
     handler = StreamHandler()
-    handler.setLevel("INFO")
+    if args.debug:
+        handler.setLevel("DEBUG")
+    else:
+        handler.setLevel("INFO")
     basicConfig(handlers=[handler, rotatingfilehandler])
-    basicConfig(level="DEBUG")
+    # basicConfig(level="DEBUG")
     logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+
+    if args.punch_in and args.punch_out:
+        logger.info("Please select either option '-i' or '-o'")
+        sys.exit()
+    elif args.punch_out:
+        logger.info("Punch-out mode")
+    else:
+        logger.info("Punch-in mode")
 
     is_workday = os.path.isfile(PATH_WORKDAY)
     is_timestamp_in = os.path.isfile(PATH_TIMESTAMP_IN)
@@ -70,7 +82,7 @@ if __name__ == "__main__":
         logger.info("Not workday")
         sys.exit()
 
-    if not is_punch_out:
+    if not args.punch_out:
         if not is_timestamp_in:
             btn_selector = "input#btnStInput"
             selector_type = "punch-in"
@@ -103,18 +115,15 @@ if __name__ == "__main__":
             sys.exit()
         else:
             logger.info("There is something wrong")
-            logger.info("===== inputs =====")
-            logger.info(f"{is_waiting=}")
-            logger.info(f"{is_workday=}")
-            logger.info(f"{is_punch_out=}")
-            logger.info(f"{is_timestamp_in=}")
-            logger.info(f"{is_timestamp_out=}")
-            logger.info("===== outputs =====")
-            logger.info(f"{btn_selector=}")
-            logger.info(f"{selector_type=}")
-            logger.info(f"{make_file=}")
-            logger.info(f"{os.path.isfile(PATH_WAITING)=}")
-            logger.info(f"{is_needed_reason_input=}")
+            logger.debug("===== inputs =====")
+            logger.debug(f"{is_waiting=}")
+            logger.debug(f"{is_workday=}")
+            logger.debug(f"{args.punch_out=}")
+            logger.debug(f"{is_timestamp_in=}")
+            logger.debug(f"{is_timestamp_out=}")
+            logger.debug("===== outputs =====")
+            logger.debug(f"{os.path.isfile(PATH_WAITING)=}")
+            logger.debug(f"{is_needed_reason_input=}")
             sys.exit()
 
     playwright = sync_playwright().start()

@@ -2,6 +2,7 @@ import re
 import os
 import sys
 import datetime
+import argparse
 from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
 
@@ -15,7 +16,14 @@ import module_auto_timestamp as modat
 
 nest_asyncio.apply()
 
-args = sys.argv
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--debug", action="store_true",
+                    help="output logs with debug messages")
+parser.add_argument("-D", "--date",
+                    help="Target date in YYYY-MM-DD format. If not specified, today\'s date will be used.")
+parser.add_argument("-L", "--last_month", action="store_true",
+                    help="run on the attendance sheet for last month")
+args = parser.parse_args()
 
 # CONST parameter
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
@@ -26,22 +34,6 @@ TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
 
 date_pattern = r'^(\d{4}-\d{2}-\d{2})$' # YYYY-MM-DDの形式と完全一致するかチェック
-if len(args) < 2:
-    is_last_month = False
-    is_today_only = False
-    today = ""
-elif args[1] == "1":
-    is_last_month = True
-    is_today_only = False
-    today = ""
-elif bool(re.search(date_pattern, args[1])):
-    is_last_month = False
-    is_today_only = True
-    today = args[1]
-else:
-    is_last_month = False
-    is_today_only = False
-    today = ""
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
@@ -55,10 +47,31 @@ rotatingfilehandler = handlers.RotatingFileHandler(
 
 if __name__ == "__main__":
     handler = StreamHandler()
-    handler.setLevel("INFO")
+    if args.debug:
+        handler.setLevel("DEBUG")
+        is_view_window = True
+    else:
+        handler.setLevel("INFO")
+        is_view_window = False
+
+    if args.last_month:
+        is_last_month = True
+    else:
+        is_last_month = False
+
     basicConfig(handlers=[handler, rotatingfilehandler])
     basicConfig(level="DEBUG")
     logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+
+    if args.date is None:
+        is_today_only = False
+        today = ""
+    elif bool(re.search(date_pattern, args.date)):
+        is_today_only = True
+        today = args.date
+    else:
+        logger.error("Please check if the target date format is in YYYY-MM-DD.")
+        sys.exit()
 
     is_needed_reason_input = os.path.isfile(PATH_REASON_INPUT)
 
@@ -66,10 +79,17 @@ if __name__ == "__main__":
 
     user_data_dir = Path("data")
 
+    if is_view_window:
+        browser_position='--window-position=0,0'
+    else:
+        browser_position='--window-position=3000,3000'
+
     browser = playwright.chromium.launch_persistent_context(
         headless=False,
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
+        no_viewport=False,
+        args=[browser_position]
     )
     page = browser.pages[0]
 

@@ -5,4 +5,4 @@ setlocal
 cd /d %~dp0
 
 call "..\..\venv\venv_script\Scripts\activate"
-python "auto_timestamp_inout.py"
+start /min python "auto_timestamp_inout.py" -i
