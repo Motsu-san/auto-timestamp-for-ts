@@ -254,6 +254,7 @@ if __name__ == "__main__":
             else:
                 logger.info("person hour has already been input")
 
+            # Input a reason for discrepancy when a reason file exists
             if is_needed_reason_input:
                 # Set selector
                 daily_access_selector = "td#dailyAccsCell" + year_month_day
