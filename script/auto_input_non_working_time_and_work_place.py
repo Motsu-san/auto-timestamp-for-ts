@@ -60,7 +60,6 @@ if __name__ == "__main__":
         is_last_month = False
 
     basicConfig(handlers=[handler, rotatingfilehandler])
-    basicConfig(level="DEBUG")
     logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     if args.date is None:
