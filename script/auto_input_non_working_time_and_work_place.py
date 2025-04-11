@@ -116,11 +116,15 @@ if __name__ == "__main__":
         frame.click("#prevMonthButton")
         # Wait for finishing loading the data
         frame.wait_for_selector("#shim", state="hidden")
+        logger.info("input last month")
+    else:
+        logger.info("input this month")
 
     # Initialize cnt and flags
     cnt_tuesday = 0
     # Get values of this year and month
     year_month = frame.wait_for_selector("#yearMonthList", timeout=5000).input_value()
+    logger.debug(f"{year_month=}")
     if not year_month:
         logger.error("No year_month found in the frame")
     year = year_month[:4]
@@ -128,6 +132,8 @@ if __name__ == "__main__":
     # Input data in every date row
     frame.wait_for_selector('tr[id*="dateRow"]', timeout=5000)
     date_rows = frame.query_selector_all('tr[id*="dateRow"]')
+    logger.debug(f"Found {len(date_rows)} date rows")
+
     # 要素が見つからない場合のハンドリング
     if not date_rows:
         logger.error("No date rows found in the frame")
