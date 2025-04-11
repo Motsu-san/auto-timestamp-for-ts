@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     frame = page.wait_for_selector("iframe").content_frame()
 
-    logger.info(f"{frame.wait_for_selector('td')=}")
+    logger.debug("logged in")
 
     info_panel_selector = 'span[data-dojo-attach-point="closeButtonNode"]'
     if modat.does_selector_exist(frame, info_panel_selector, TIMEOUT_DEFAULT):
@@ -156,13 +156,13 @@ if __name__ == "__main__":
             continue
         # Set selectors
         daily_work_cell_selector = "td#dailyWorkCell" + year_month_day
-        logger.debug(f"{daily_work_cell_selector=}")
+        logger.info("================ " + f"{daily_work_cell_selector=}")
         ttv_time_st_selector = "td#ttvTimeSt" + year_month_day
         logger.debug(f"{ttv_time_st_selector=}")
         is_visible_ttv_time_st = frame.locator(ttv_time_st_selector).is_visible()
         if not is_visible_ttv_time_st:
             logger.info(
-                "The page might be approved or still completed inputting. skipping ..."
+                "The page might be approved or still not completed inputting. skipping ..."
             )
             continue
 
