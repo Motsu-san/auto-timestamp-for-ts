@@ -126,7 +126,7 @@ if __name__ == "__main__":
     # Input data in every date row
     for date_row in frame.query_selector_all('tr[id*="dateRow"]'):
         # Get a value of day
-        logger.info(f"{date_row.text_content()=}")
+        logger.debug(f"{date_row.text_content()=}")
         date_row_text = str(date_row.text_content())
         idx = date_row_text.find("/")
         if idx == -1:
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         year_month_day = year + "-" + month + "-" + day
         # Skip if not today
         if is_today_only and not (today == year_month_day):
-            logger.info("Skipped, it's not today")
+            logger.debug("Skipped, it's not today")
             continue
         # Set selectors
         daily_work_cell_selector = "td#dailyWorkCell" + year_month_day
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         # Get the day of the week
         td_week = tds[1]
         td_week_status = td_week.text_content()
-        logger.info(f"{td_week_status=}")
+        logger.debug(f"{td_week_status=}")
         # TIER IV all hands meeting is held on the 2nd and 4th Tuesday in a month
         if "火" in td_week_status:
             cnt_tuesday += 1
@@ -197,7 +197,7 @@ if __name__ == "__main__":
                         f"{"Non working time is not needed to be input. skipping"}"
                     )
                 if is_today_only:
-                    logger.info("work in office on Friday")
+                    logger.debug("work in office on Friday")
                     frame.click(ttv_time_st_selector)
                     modat.input_work_place(frame)
                     frame.wait_for_selector(
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             td_discrepancy_alert = tds[7]
             selector_discrepancy_alert = "div.pp_base.pp_acc_02"
             if modat.does_selector_exist(td_discrepancy_alert, selector_discrepancy_alert, 100):
-                logger.info("start inputting a reason for discrepancy")
+                logger.debug("start inputting a reason for discrepancy")
                 frame.click(selector_discrepancy_alert)
                 # Select option from the discrepancy reason dropdown
                 frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
@@ -237,22 +237,22 @@ if __name__ == "__main__":
                 frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
                 frame.get_by_role("button", name="登録").click()
             else:
-                logger.info("No discrepancy alert")
+                logger.debug("No discrepancy alert")
 
             # Input person-hour when it is not consisted with actual working time
             td_person_hour = tds[8]
             td_person_hour_text = td_person_hour.text_content()
-            logger.info(f"{td_person_hour_text=}")
+            logger.debug(f"{td_person_hour_text=}")
             excl_selector = "div.workng.pp_base.pp_exclamatio2"
             if modat.does_selector_exist(td_person_hour, excl_selector, 100):
-                logger.info("start inputting person hour")
+                logger.debug("start inputting person hour")
                 # Start controlling "工数実績入力" on browser
                 frame.click(daily_work_cell_selector)
                 modat.input_person_hour(
                     frame, is_tier4_all_hands, is_first_workday, ConstPersonHour()
                 )
             else:
-                logger.info("person hour has already been input")
+                logger.debug("person hour has already been input")
 
             # Input a reason for discrepancy when a reason file exists
             if is_needed_reason_input:
@@ -264,6 +264,6 @@ if __name__ == "__main__":
                 frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
                 frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
                 frame.get_by_role("button", name="登録").click()
-                logger.info("The discrepancy reason has been input")
+                logger.debug("The discrepancy reason has been input")
             else:
-                logger.info("Not input the discrepancy reason")
+                logger.debug("Not input the discrepancy reason")

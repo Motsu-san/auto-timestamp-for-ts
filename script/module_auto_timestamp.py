@@ -108,7 +108,7 @@ def is_holiday(tds: list[ElementHandle], workday_char: str = "出勤日") -> boo
     """
     td_work_status = tds[2]
     work_status_title = td_work_status.get_attribute("title")
-    logger.info(f"work_status_title={work_status_title}")
+    logger.debug(f"work_status_title={work_status_title}")
     if workday_char not in work_status_title:
         logger.info("the day is a holiday. skipping ...")
         return True
@@ -130,8 +130,8 @@ def get_work_times(tds: list[ElementHandle]):
     start_time = td_start.text_content().strip()
     end_time = td_end.text_content().strip()
 
-    logger.info(f"start_time={start_time}")
-    logger.info(f"end_time={end_time}")
+    logger.debug(f"start_time={start_time}")
+    logger.debug(f"end_time={end_time}")
 
     return start_time, end_time
 
@@ -160,13 +160,13 @@ def input_non_work_time(
         is_start_rest_input = is_text_box_input(
             frame, "#startRest2", timeout=TIMEOUT_DEFAULT
         )
-    logger.info(f"{is_start_rest_input=}")
+    logger.debug(f"{is_start_rest_input=}")
 
     button_selector = 'input.pb_btn_plusL[type="button"][title="休憩時間入力行追加"]'
     # Skip if my rest time is input
     if not is_start_rest_input:
         if is_needed_rest2_input:
-            logger.info(f"{is_needed_rest2_input=}")
+            logger.debug(f"{is_needed_rest2_input=}")
             frame.wait_for_selector("#startRest2", timeout=TIMEOUT_DEFAULT).fill(
                 const.START_REST_TIME2
             )
@@ -174,7 +174,7 @@ def input_non_work_time(
                 const.END_REST_TIME2
             )
         if is_needed_rest3_input:
-            logger.info(f"{is_needed_rest3_input=}")
+            logger.debug(f"{is_needed_rest3_input=}")
             frame.wait_for_selector(button_selector, state="visible")
             frame.click(button_selector)
             frame.wait_for_selector("#startRest3", timeout=TIMEOUT_DEFAULT).fill(
@@ -211,14 +211,14 @@ def input_person_hour(
     const: ConstPersonHour,
 ):
     # Get actual working time
-    logger.info(f"{frame.wait_for_selector('#empWorkRealTime').text_content()=}")
+    logger.debug(f"{frame.wait_for_selector('#empWorkRealTime').text_content()=}")
     actual_working_time_message = frame.wait_for_selector(
         "#empWorkRealTime"
     ).text_content()
     target = "："  # 「：」より後ろ（時刻）を抽出したい
     idx = actual_working_time_message.find(target)
     actual_working_time = actual_working_time_message[idx + len(target) :]
-    logger.info(f"{actual_working_time=}")
+    logger.debug(f"{actual_working_time=}")
     # initialize RD1_GI time
     frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill("")
     # Input RD1_NOT_GI time
@@ -227,12 +227,12 @@ def input_person_hour(
     )
     # Input IN_HOUSE_MEETING time if needed
     if is_tier4_all_hands:
-        logger.info(f"{"TIER IV all hands held"}")
+        logger.debug(f"{"TIER IV all hands held"}")
         frame.wait_for_selector("#empInputTime2", timeout=TIMEOUT_DEFAULT).fill(
             const.IN_HOUSE_MEETING
         )
     if is_first_workday:
-        logger.info(f"{"Added Attendance related time"}")
+        logger.debug(f"{"Added Attendance related time"}")
         frame.wait_for_selector("#empInputTime4", timeout=TIMEOUT_DEFAULT).fill(
             const.ATTENDANCE_RELATED
         )
@@ -243,17 +243,17 @@ def input_person_hour(
     total_input_working_time = frame.wait_for_selector(
         "#empWorkTotalTime"
     ).text_content()
-    logger.info(f"{total_input_working_time=}")
+    logger.debug(f"{total_input_working_time=}")
     # Get RD1_GI time
     rd1_gi_working_timedelta = str(
         string_to_datetime(actual_working_time)
         - string_to_datetime(total_input_working_time)
     )
-    logger.info(f"{rd1_gi_working_timedelta=}")
+    logger.debug(f"{rd1_gi_working_timedelta=}")
     rd1_gi_working_time = rd1_gi_working_timedelta[
         :-3
     ]  # In [HH:MM:SS], ":SS" is deleted
-    logger.info(f"{rd1_gi_working_time=}")
+    logger.debug(f"{rd1_gi_working_time=}")
     frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill(
         rd1_gi_working_time
     )
