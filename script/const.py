@@ -23,10 +23,11 @@ START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
 TIME_DURATION_DISCREPANCY = 1800.0
 PATH_REASON_INPUT = "REASON_INPUT"
+OFFICE_DAYS = ["金", "水"]
 
 class ConstRestTimePattern:
     def __init__(self, arg):
-        if arg == "Friday":
+        if arg == "Office_day":
             self.START_REST_TIME2 = "06:30"
             self.END_REST_TIME2 = "09:30"
             self.START_REST_TIME3 = "17:00"

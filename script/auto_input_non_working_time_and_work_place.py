@@ -32,6 +32,7 @@ WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
+OFFICE_DAYS = const.OFFICE_DAYS
 
 date_pattern = r'^(\d{4}-\d{2}-\d{2})$' # YYYY-MM-DDの形式と完全一致するかチェック
 
@@ -178,6 +179,12 @@ if __name__ == "__main__":
             is_tier4_all_hands = (cnt_tuesday == 2) or (cnt_tuesday == 4)
         else:
             is_tier4_all_hands = False
+
+        if any(day in td_week_status for day in OFFICE_DAYS):
+            is_work_in_office = True
+        else:
+            is_work_in_office = False
+
         # Get start and end of working time
         start_time, end_time = modat.get_work_times(tds)
         if not start_time or not end_time:
@@ -189,28 +196,28 @@ if __name__ == "__main__":
             # startRest2
             td_start_time = modat.string_to_datetime(start_time)
             td_end_time = modat.string_to_datetime(end_time)
-            if "金" in td_week_status:
+            if is_work_in_office:
                 # Check if rest time input is needed
                 is_needed_rest2_input = td_start_time < modat.string_to_datetime(
-                    ConstRestTimePattern("Friday").START_REST_TIME2
+                    ConstRestTimePattern("Office_day").START_REST_TIME2
                 )
                 is_needed_rest3_input = (
                     modat.string_to_datetime(
-                        ConstRestTimePattern("Friday").END_REST_TIME3
+                        ConstRestTimePattern("Office_day").END_REST_TIME3
                     )
                     <= td_end_time
                 )
                 if is_needed_rest2_input or is_needed_rest3_input:
                     frame.click(ttv_time_st_selector)
                     modat.input_non_work_time(
-                        frame, start_time, end_time, ConstRestTimePattern("Friday")
+                        frame, start_time, end_time, ConstRestTimePattern("Office_day")
                     )
                 else:
                     logger.info(
                         f"{"Non working time is not needed to be input. skipping"}"
                     )
                 if is_today_only:
-                    logger.debug("work in office on Friday")
+                    logger.debug("work in office on Office day")
                     frame.click(ttv_time_st_selector)
                     modat.input_work_place(frame)
                     frame.wait_for_selector(
