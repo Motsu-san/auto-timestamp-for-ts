@@ -279,6 +279,7 @@ if __name__ == "__main__":
                 # Set selector
                 daily_access_selector = "td#dailyAccsCell" + year_month_day
                 logger.debug(f"{daily_access_selector=}")
+                frame.click(daily_access_selector)
                 # Select option from the discrepancy reason dropdown
                 frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
                 frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
