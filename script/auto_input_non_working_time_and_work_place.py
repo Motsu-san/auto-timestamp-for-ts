@@ -73,7 +73,7 @@ if __name__ == "__main__":
         logger.error("Please check if the target date format is in YYYY-MM-DD.")
         sys.exit()
 
-    is_needed_reason_input = os.path.isfile(PATH_REASON_INPUT)
+    is_needed_reason_input = os.path.isfile(PATH_REASON_INPUT) and is_today_only
 
     playwright = sync_playwright().start()
 
