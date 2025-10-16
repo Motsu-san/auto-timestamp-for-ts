@@ -9,6 +9,7 @@ const_pri_dict = json.load(open_json)
 
 # CONST parameter
 TIMEOUT_DEFAULT = 1000.0
+TIMEOUT_LOADING = 15000.0
 ACCOUNT_ADDRESS = const_pri_dict['ACCOUNT_ADDRESS']
 TIMEOUT_LOGIN = 120000.0
 PATH_WORKDAY = "WORKDAY"

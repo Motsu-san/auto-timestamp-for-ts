@@ -27,6 +27,7 @@ args = parser.parse_args()
 nest_asyncio.apply()
 
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
+TIMEOUT_LOADING = const.TIMEOUT_LOADING
 ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 PATH_WORKDAY = const.PATH_WORKDAY
@@ -168,7 +169,7 @@ if __name__ == "__main__":
 
     logger.info(f"{frame.wait_for_selector('td')=}")
 
-    if modat.does_selector_exist(frame, btn_selector, TIMEOUT_DEFAULT):
+    if modat.does_selector_exist(frame, btn_selector, TIMEOUT_LOADING):
         logger.info(selector_type + " selector exists")
 
         try:
