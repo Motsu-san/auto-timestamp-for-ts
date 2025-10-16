@@ -24,7 +24,7 @@ START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
 TIME_DURATION_DISCREPANCY = 1800.0
 PATH_REASON_INPUT = "REASON_INPUT"
-OFFICE_DAYS = ["金", "水"]
+OFFICE_DAYS = ["金"]
 
 class ConstRestTimePattern:
     def __init__(self, arg):
@@ -42,6 +42,6 @@ class ConstRestTimePattern:
 
 class ConstPersonHour:
     def __init__(self):
-        self.RD1_NOT_GI = "01:00"
+        self.RD1_NOT_GI = "00:00"
         self.IN_HOUSE_MEETING = "01:30"
         self.ATTENDANCE_RELATED = "01:00"
