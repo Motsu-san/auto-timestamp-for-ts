@@ -1,7 +1,3 @@
-#     5.前項に基づき、半日単位で取得した場合の始業および終業時刻は次の通りとする。
-# 午前休暇 午後2時~午後6時
-# 午後休暇 午前9時~午後1時
-# https://drive.google.com/file/d/1g7ivADu5etyI7_V3a2aq7oPjpRfpdaKV/view
 import json
 
 open_json = open('const_pri.json')
