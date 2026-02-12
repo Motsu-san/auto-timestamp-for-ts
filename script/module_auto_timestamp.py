@@ -97,6 +97,7 @@ def login(page: Page, gmail_address: str):
     })
 
     page.evaluate("window.blur()")  # フォーカスを外す
+    logger.debug("Login completed successfully")
 
 
 def does_selector_exist(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):

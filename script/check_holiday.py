@@ -100,7 +100,7 @@ if __name__ == "__main__":
     handler.setLevel("INFO")
     basicConfig(handlers=[handler, rotatingfilehandler])
     basicConfig(level="DEBUG")
-    logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+    logger.info("=== CHECK HOLIDAY === " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     date_arg = sys.argv[1] if len(sys.argv) > 1 else None
     exit(main(date_arg))

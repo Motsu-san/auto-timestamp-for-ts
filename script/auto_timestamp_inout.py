@@ -60,7 +60,7 @@ if __name__ == "__main__":
         handler.setLevel("INFO")
     basicConfig(handlers=[handler, rotatingfilehandler])
     # basicConfig(level="DEBUG")
-    logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+    logger.info("=== AUTO TIMESTAMP INOUT === " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     if args.punch_in and args.punch_out:
         logger.error("Please select either option '-i' or '-o'")
@@ -121,7 +121,7 @@ if __name__ == "__main__":
             logger.info("Has already punch out")
             sys.exit()
         else:
-            logger.info("There is something wrong")
+            logger.error("There is something wrong")
             logger.debug("===== inputs =====")
             logger.debug(f"{is_waiting=}")
             logger.debug(f"{is_workday=}")
@@ -165,15 +165,17 @@ if __name__ == "__main__":
 
     # login when the account check page appears
     page_url = page.url
+    logger.debug(f"Current page URL: {page_url}")
     if "accounts.google.com" in page_url:
+        logger.info("Google account login page detected")
         modat.login(page, ACCOUNT_ADDRESS)
 
     try:
         page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
-        logger.info("login")
+        logger.debug("login")
 
     except TimeoutError:
-        logger.info("Could not transition to the specified page. Time has expired.")
+        logger.error("Could not transition to the specified page. Time has expired.")
         sys.exit()
 
     frame = page.wait_for_selector("iframe").content_frame()
@@ -255,7 +257,7 @@ if __name__ == "__main__":
                 f"Failed to click and timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
             )
     else:
-        logger.info("The " + selector_type + " selector doesn't exist")
+        logger.error("The " + selector_type + " selector doesn't exist")
 
     try:
         os.remove(PATH_WAITING)

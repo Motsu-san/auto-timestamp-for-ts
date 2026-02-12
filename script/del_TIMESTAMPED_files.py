@@ -40,6 +40,7 @@ def main():
         logger.info(f"WORKDAY file date: {file_date}")
 
         if file_date and current_date > file_date:
+            logger.info("WORKDAY file is older than today's date.")
             # Delete timestamped files (WORKDAY is managed by check_holiday.py)
             for file in timestamped_files:
                 if os.path.exists(file):
@@ -48,6 +49,9 @@ def main():
 
             if os.path.exists(check_holiday_script):
                 os.system(f"python {check_holiday_script}")
+                logger.info("Updated WORKDAY file status.")
+        else:
+            logger.info("WORKDAY file is up to date. No files deleted.")
     else:
         logger.info("There is no WORKDAY file.")
         for file in ["TIMESTAMPED_IN", "TIMESTAMPED_OUT"]:
@@ -57,12 +61,14 @@ def main():
 
         if os.path.exists(check_holiday_script):
             os.system(f"python {check_holiday_script}")
+            logger.info("Updated WORKDAY file status.")
+
 
 if __name__ == "__main__":
     handler = StreamHandler()
     handler.setLevel("INFO")
     basicConfig(handlers=[handler, rotatingfilehandler])
     basicConfig(level="DEBUG")
-    logger.info("================ " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
+    logger.info("=== CHECK TIMESTAMPED FILES === " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     main()
