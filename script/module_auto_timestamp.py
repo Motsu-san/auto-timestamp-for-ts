@@ -35,15 +35,18 @@ def login(page: Page, gmail_address: str):
     window_id = windows["windowId"]
 
     # ウィンドウを画面内に移動
-    client.send("Browser.setWindowBounds", {
-        "windowId": window_id,
-        "bounds": {
-            "left": 100,     # 画面左から100px
-            "top": 100,      # 画面上から100px
-            "width": 1920,   # 幅
-            "height": 1280    # 高さ
-        }
-    })
+    client.send(
+        "Browser.setWindowBounds",
+        {
+            "windowId": window_id,
+            "bounds": {
+                "left": 100,  # 画面左から100px
+                "top": 100,  # 画面上から100px
+                "width": 1920,  # 幅
+                "height": 1280,  # 高さ
+            },
+        },
+    )
 
     page.bring_to_front()  # ログイン時にウィンドウを前面に表示
 
@@ -86,15 +89,18 @@ def login(page: Page, gmail_address: str):
         raise
 
     # ウィンドウを画面外に移動
-    client.send("Browser.setWindowBounds", {
-        "windowId": window_id,
-        "bounds": {
-            "left": 3000,     # 画面左から100px
-            "top": 3000,      # 画面上から100px
-            "width": 1920,   # 幅
-            "height": 1280    # 高さ
-        }
-    })
+    client.send(
+        "Browser.setWindowBounds",
+        {
+            "windowId": window_id,
+            "bounds": {
+                "left": 3000,  # 画面左から100px
+                "top": 3000,  # 画面上から100px
+                "width": 1920,  # 幅
+                "height": 1280,  # 高さ
+            },
+        },
+    )
 
     page.evaluate("window.blur()")  # フォーカスを外す
     logger.debug("Login completed successfully")
@@ -168,9 +174,7 @@ def get_work_times(tds: list[ElementHandle]):
     return start_time, end_time
 
 
-def input_non_work_time(
-    frame: Frame, td_start: str, td_end: str, const: ConstRestTimePattern
-):
+def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRestTimePattern):
 
     # startRest2
     td_start_time = string_to_datetime(td_start)
@@ -179,19 +183,15 @@ def input_non_work_time(
     is_needed_rest2_input = td_start_time < string_to_datetime(const.START_REST_TIME2)
     is_needed_rest3_input = string_to_datetime(const.END_REST_TIME3) < td_end_time
     # Check if the day is a am/pm paid holiday
-    is_ampm_paid_holiday = (
-        string_to_datetime(START_REST_TIME_DEFAULT) <= td_start_time
-    ) or (td_end_time <= string_to_datetime(END_REST_TIME_DEFAULT))
+    is_ampm_paid_holiday = (string_to_datetime(START_REST_TIME_DEFAULT) <= td_start_time) or (
+        td_end_time <= string_to_datetime(END_REST_TIME_DEFAULT)
+    )
 
     # Get the flag if my rest time is input
     if is_ampm_paid_holiday:
-        is_start_rest_input = is_text_box_input(
-            frame, "#startRest1", timeout=TIMEOUT_DEFAULT
-        )
+        is_start_rest_input = is_text_box_input(frame, "#startRest1", timeout=TIMEOUT_DEFAULT)
     else:
-        is_start_rest_input = is_text_box_input(
-            frame, "#startRest2", timeout=TIMEOUT_DEFAULT
-        )
+        is_start_rest_input = is_text_box_input(frame, "#startRest2", timeout=TIMEOUT_DEFAULT)
     logger.debug(f"{is_start_rest_input=}")
 
     button_selector = 'input.pb_btn_plusL[type="button"][title="休憩時間入力行追加"]'
@@ -202,9 +202,7 @@ def input_non_work_time(
             frame.wait_for_selector("#startRest2", timeout=TIMEOUT_DEFAULT).fill(
                 const.START_REST_TIME2
             )
-            frame.wait_for_selector("#endRest2", timeout=TIMEOUT_DEFAULT).fill(
-                const.END_REST_TIME2
-            )
+            frame.wait_for_selector("#endRest2", timeout=TIMEOUT_DEFAULT).fill(const.END_REST_TIME2)
         if is_needed_rest3_input:
             logger.debug(f"{is_needed_rest3_input=}")
             frame.wait_for_selector(button_selector, state="visible")
@@ -212,9 +210,7 @@ def input_non_work_time(
             frame.wait_for_selector("#startRest3", timeout=TIMEOUT_DEFAULT).fill(
                 const.START_REST_TIME3
             )
-            frame.wait_for_selector("#endRest3", timeout=TIMEOUT_DEFAULT).fill(
-                const.END_REST_TIME3
-            )
+            frame.wait_for_selector("#endRest3", timeout=TIMEOUT_DEFAULT).fill(const.END_REST_TIME3)
         frame.wait_for_selector("#dlgInpTimeOk", timeout=TIMEOUT_DEFAULT).click()
         frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
     else:
@@ -244,9 +240,7 @@ def input_person_hour(
 ):
     # Get actual working time
     logger.debug(f"{frame.wait_for_selector('#empWorkRealTime').text_content()=}")
-    actual_working_time_message = frame.wait_for_selector(
-        "#empWorkRealTime"
-    ).text_content()
+    actual_working_time_message = frame.wait_for_selector("#empWorkRealTime").text_content()
     target = "："  # 「：」より後ろ（時刻）を抽出したい
     idx = actual_working_time_message.find(target)
     actual_working_time = actual_working_time_message[idx + len(target) :]
@@ -254,9 +248,7 @@ def input_person_hour(
     # initialize RD1_GI time
     frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill("")
     # Input RD1_NOT_GI time
-    frame.wait_for_selector("#empInputTime1", timeout=TIMEOUT_DEFAULT).fill(
-        const.RD1_NOT_GI
-    )
+    frame.wait_for_selector("#empInputTime1", timeout=TIMEOUT_DEFAULT).fill(const.RD1_NOT_GI)
     # Input IN_HOUSE_MEETING time if needed
     if is_tier4_all_hands:
         logger.debug(f"{"TIER IV all hands held"}")
@@ -272,23 +264,16 @@ def input_person_hour(
     frame.wait_for_selector(
         "#empWorkRealTime", timeout=TIMEOUT_DEFAULT
     ).click()  # needed to update empWorkTotalTime
-    total_input_working_time = frame.wait_for_selector(
-        "#empWorkTotalTime"
-    ).text_content()
+    total_input_working_time = frame.wait_for_selector("#empWorkTotalTime").text_content()
     logger.debug(f"{total_input_working_time=}")
     # Get RD1_GI time
     rd1_gi_working_timedelta = str(
-        string_to_datetime(actual_working_time)
-        - string_to_datetime(total_input_working_time)
+        string_to_datetime(actual_working_time) - string_to_datetime(total_input_working_time)
     )
     logger.debug(f"{rd1_gi_working_timedelta=}")
-    rd1_gi_working_time = rd1_gi_working_timedelta[
-        :-3
-    ]  # In [HH:MM:SS], ":SS" is deleted
+    rd1_gi_working_time = rd1_gi_working_timedelta[:-3]  # In [HH:MM:SS], ":SS" is deleted
     logger.debug(f"{rd1_gi_working_time=}")
-    frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill(
-        rd1_gi_working_time
-    )
+    frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill(rd1_gi_working_time)
     frame.wait_for_selector("#empWorkOk", timeout=TIMEOUT_DEFAULT).click()
     frame.wait_for_selector("#empWorkOk", state="hidden")
 

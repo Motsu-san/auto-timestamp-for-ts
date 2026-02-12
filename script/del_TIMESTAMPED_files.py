@@ -17,16 +17,18 @@ rotatingfilehandler = handlers.RotatingFileHandler(
     backupCount=20,
 )
 
+
 def get_file_date(filepath):
     """Get the last modified date of a file in YYYYMMDD format."""
     try:
         timestamp = os.path.getmtime(filepath)
-        return datetime.datetime.fromtimestamp(timestamp).strftime('%Y%m%d')
+        return datetime.datetime.fromtimestamp(timestamp).strftime("%Y%m%d")
     except FileNotFoundError:
         return None
 
+
 def main():
-    current_date = datetime.datetime.today().strftime('%Y%m%d')
+    current_date = datetime.datetime.today().strftime("%Y%m%d")
     logger.info(f"Today's date: {current_date}")
 
     workday_file = const.PATH_WORKDAY

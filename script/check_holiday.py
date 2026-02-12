@@ -18,13 +18,14 @@ rotatingfilehandler = handlers.RotatingFileHandler(
     backupCount=20,
 )
 
+
 def download_holiday_file(file_path):
     """Download the Japanese holiday CSV file if it doesn't exist."""
     url = "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv"
     try:
         response = requests.get(url)
         response.raise_for_status()
-        with open(file_path, 'wb') as file:
+        with open(file_path, "wb") as file:
             file.write(response.content)
         logger.info("Holiday file downloaded successfully.")
     except requests.RequestException as e:
@@ -32,13 +33,14 @@ def download_holiday_file(file_path):
         return False
     return True
 
+
 def is_holiday(date_str, holiday_file):
     """Check if a given date is a public holiday."""
     if not os.path.exists(holiday_file):
         if not download_holiday_file(holiday_file):
             return 9  # Error code
 
-    with open(holiday_file, newline='', encoding='shift_jis') as file:
+    with open(holiday_file, newline="", encoding="shift_jis") as file:
         reader = csv.reader(file)
         next(reader)  # Skip header
         for row in reader:
@@ -47,6 +49,7 @@ def is_holiday(date_str, holiday_file):
                 return 0  # Holiday
 
     return 1  # Not a holiday
+
 
 def main(date_input=None):
     # Get current date if no input is provided
@@ -92,6 +95,7 @@ def main(date_input=None):
         file.write("WORKDAY\n")
     logger.info("Workday.")
     return 1  # Workday
+
 
 if __name__ == "__main__":
     import sys

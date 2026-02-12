@@ -1,20 +1,20 @@
 import json
 
-open_json = open('const_pri.json')
+open_json = open("const_pri.json")
 const_pri_dict = json.load(open_json)
 
 # CONST parameter
 TIMEOUT_DEFAULT = 1000.0
 TIMEOUT_LOADING = 15000.0
-ACCOUNT_ADDRESS = const_pri_dict['ACCOUNT_ADDRESS']
+ACCOUNT_ADDRESS = const_pri_dict["ACCOUNT_ADDRESS"]
 TIMEOUT_LOGIN = 120000.0
 PATH_WORKDAY = "WORKDAY"
 PATH_TIMESTAMP_IN = "TIMESTAMPED_IN"
 PATH_TIMESTAMP_OUT = "TIMESTAMPED_OUT"
 PATH_WAITING = "WAITING"
 START_TIME_STAMP = "06:00"
-TS_PAGE_URL = const_pri_dict['TS_PAGE_URL']
-TS_ATTENDANCE_SHEET_PAGE_URL = const_pri_dict['TS_ATTENDANCE_SHEET_PAGE_URL']
+TS_PAGE_URL = const_pri_dict["TS_PAGE_URL"]
+TS_ATTENDANCE_SHEET_PAGE_URL = const_pri_dict["TS_ATTENDANCE_SHEET_PAGE_URL"]
 
 START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
@@ -22,6 +22,7 @@ TIME_DURATION_DISCREPANCY = 1800.0
 PATH_REASON_INPUT = "REASON_INPUT"
 OFFICE_DAYS = ["金"]
 MAX_RETRY_COUNT_CLICK = 3
+
 
 class ConstRestTimePattern:
     def __init__(self, arg):

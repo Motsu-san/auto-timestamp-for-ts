@@ -16,12 +16,9 @@ import module_auto_timestamp as modat
 import const
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--punch_in", action="store_true",
-                    help="run in punch-in mode")
-parser.add_argument("-o", "--punch_out", action="store_true",
-                    help="run in punch-out mode")
-parser.add_argument("-d", "--debug", action="store_true",
-                    help="output logs with debug messages")
+parser.add_argument("-i", "--punch_in", action="store_true", help="run in punch-in mode")
+parser.add_argument("-o", "--punch_out", action="store_true", help="run in punch-out mode")
+parser.add_argument("-d", "--debug", action="store_true", help="output logs with debug messages")
 args = parser.parse_args()
 
 nest_asyncio.apply()
@@ -138,16 +135,16 @@ if __name__ == "__main__":
     user_data_dir = Path("working_time")
 
     if is_view_window:
-        browser_position='--window-position=0,0'
+        browser_position = "--window-position=0,0"
     else:
-        browser_position='--window-position=3000,3000'
+        browser_position = "--window-position=3000,3000"
 
     browser = playwright.chromium.launch_persistent_context(
         headless=False,
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
         no_viewport=False,
-        args=[browser_position]
+        args=[browser_position],
     )
     page = browser.pages[0]
 
