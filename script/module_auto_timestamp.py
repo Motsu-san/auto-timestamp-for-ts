@@ -259,3 +259,84 @@ def input_person_hour(
     )
     frame.wait_for_selector("#empWorkOk", timeout=TIMEOUT_DEFAULT).click()
     frame.wait_for_selector("#empWorkOk", state="hidden")
+
+
+def check_today_timestamp(page: Page, is_punch_in: bool, timeout=TIMEOUT_DEFAULT) -> bool:
+    """
+    Check if today's timestamp is recorded on the specified page
+
+    Args:
+        page: Page object
+        is_punch_in: If True, check punch-in (start time), if False, check punch-out (end time)
+        timeout: Timeout duration
+
+    Returns:
+        bool: True if timestamp is recorded, False otherwise
+    """
+    import re
+
+    try:
+        # Wait for iframe
+        frame = page.wait_for_selector("iframe", timeout=timeout).content_frame()
+
+        # Get today's date
+        today = datetime.datetime.now()
+        year = str(today.year)
+        month = str(today.month).zfill(2)
+        day = str(today.day).zfill(2)
+        today_str = year + "-" + month + "-" + day
+
+        logger.info(f"Checking timestamp for today: {today_str}")
+
+        # Get year and month
+        year_month = frame.input_value("#yearMonthList")
+        year_from_page = year_month[:4]
+        month_from_page = year_month[4:6]
+
+        # Loop through date rows to find today's row
+        for date_row in frame.query_selector_all('tr[id*="dateRow"]'):
+            date_row_text = str(date_row.text_content())
+            idx = date_row_text.find("/")
+            if idx == -1:
+                continue
+            date_row_text = date_row_text[idx + len("/") :]
+            l = re.split("[月火水木金土日]", date_row_text)
+            if len(l) == 0:
+                continue
+            day_from_page = l[0].zfill(2)
+            year_month_day = year_from_page + "-" + month_from_page + "-" + day_from_page
+
+            # Check if it's today's row
+            if today_str == year_month_day:
+                # Get cells
+                tds = date_row.query_selector_all("td")
+                if len(tds) < 6:
+                    logger.info("Not enough cells in the row")
+                    return False
+
+                # Get start and end times
+                start_time, end_time = get_work_times(tds)
+
+                if is_punch_in:
+                    # Check punch-in (start time)
+                    if start_time and start_time.strip():
+                        logger.info(f"Punch-in timestamp found: {start_time}")
+                        return True
+                    else:
+                        logger.info("Punch-in timestamp not found")
+                        return False
+                else:
+                    # Check punch-out (end time)
+                    if end_time and end_time.strip():
+                        logger.info(f"Punch-out timestamp found: {end_time}")
+                        return True
+                    else:
+                        logger.info("Punch-out timestamp not found")
+                        return False
+
+        logger.info("Today's row not found")
+        return False
+
+    except Exception as e:
+        logger.error(f"Error checking timestamp: {e}")
+        return False
