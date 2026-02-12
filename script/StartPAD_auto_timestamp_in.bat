@@ -7,4 +7,5 @@ setlocal
 cd /d %~dp0
 
 call "..\..\venv\venv_script\Scripts\activate"
-start /min python "auto_timestamp_inout.py" -i
+python "del_TIMESTAMPED_files.py"
+start cmd /c python "auto_timestamp_inout.py" -i
