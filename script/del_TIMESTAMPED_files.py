@@ -5,7 +5,7 @@ from pathlib import Path
 
 import const
 
-LOG_FILE_PATH = str(Path("log").absolute()) + r"\del_TIMESTAMPED_files.log"
+LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)

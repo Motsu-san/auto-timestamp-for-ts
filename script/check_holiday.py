@@ -6,7 +6,7 @@ from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
 import const
 
-LOG_FILE_PATH = str(Path("log").absolute()) + r"\check_holiday.log"
+LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
