@@ -3,7 +3,7 @@ import sys
 import datetime
 from logging import getLogger
 
-import nest_asyncio
+import nest_asyncio  # pyright: ignore[reportMissingImports]
 from playwright.sync_api import sync_playwright
 from playwright.sync_api._generated import *
 

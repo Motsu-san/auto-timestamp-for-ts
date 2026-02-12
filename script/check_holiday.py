@@ -1,7 +1,7 @@
 import os
 import datetime
 import csv
-import requests
+import requests  # pyright: ignore
 from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
 import const

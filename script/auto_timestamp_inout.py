@@ -8,7 +8,7 @@ import argparse
 from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
 
-import nest_asyncio
+import nest_asyncio  # type: ignore
 from playwright.sync_api import sync_playwright
 from playwright.sync_api._generated import *
 
