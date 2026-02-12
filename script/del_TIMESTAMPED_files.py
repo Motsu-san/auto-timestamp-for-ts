@@ -30,8 +30,9 @@ def main():
     logger.info(f"Today's date: {current_date}")
 
     workday_file = "WORKDAY"
-    timestamped_files = ["TIMESTAMPED_IN", "TIMESTAMPED_OUT", "WORKDAY", "REASON_INPUT"]
-    check_holiday_script = "check_holiday.py"  # Assuming a Python equivalent of check_holiday.bat
+    # WORKDAY file management is handled by check_holiday.py
+    timestamped_files = ["TIMESTAMPED_IN", "TIMESTAMPED_OUT", "REASON_INPUT"]
+    check_holiday_script = "check_holiday.py"
 
     if os.path.exists(workday_file):
         logger.info("There is a WORKDAY file.")
@@ -39,6 +40,7 @@ def main():
         logger.info(f"WORKDAY file date: {file_date}")
 
         if file_date and current_date > file_date:
+            # Delete timestamped files (WORKDAY is managed by check_holiday.py)
             for file in timestamped_files:
                 if os.path.exists(file):
                     os.remove(file)

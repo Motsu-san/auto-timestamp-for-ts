@@ -57,20 +57,34 @@ def main(date_input=None):
 
     logger.info(f"Checking date: {date}")
 
+    workday_file = const.PATH_WORKDAY
+    is_holiday_today = False
+
     # Check if weekend
     if date.weekday() in [5, 6]:  # Saturday (5) or Sunday (6)
         logger.info("Weekend.")
-        return 0  # Holiday
+        is_holiday_today = True
+    else:
+        # Check holiday CSV
+        holiday_file = "holiday.csv"
+        result = is_holiday(date.strftime("%Y/%m/%d"), holiday_file)
+        if result == 0:
+            is_holiday_today = True
+        elif result == 9:
+            # Error occurred, don't change WORKDAY file
+            logger.error("Error checking holiday. WORKDAY file not modified.")
+            return 9
+        else:
+            # Check fixed holidays (New Year's period)
+            if date.strftime("%m%d") in ["1229", "1230", "1231", "0101", "0102", "0103"]:
+                logger.info("Business holiday.")
+                is_holiday_today = True
 
-    # Check holiday CSV
-    holiday_file = "holiday.csv"
-    result = is_holiday(date.strftime("%Y/%m/%d"), holiday_file)
-    if result == 0:
-        return 0  # Holiday
-
-    # Check fixed holidays (New Year's period)
-    if date.strftime("%m%d") in ["1229", "1230", "1231", "0101", "0102", "0103"]:
-        logger.info("Business holiday.")
+    # Delete WORKDAY file if it's a holiday
+    if is_holiday_today:
+        if os.path.exists(workday_file):
+            os.remove(workday_file)
+            logger.info("Deleted WORKDAY file (holiday).")
         return 0  # Holiday
 
     # Otherwise, mark as a workday
