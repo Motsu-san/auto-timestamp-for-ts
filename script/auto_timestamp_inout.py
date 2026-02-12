@@ -151,7 +151,17 @@ if __name__ == "__main__":
     )
     page = browser.pages[0]
 
-    page.goto(TS_PAGE_URL)
+    # Navigate to timestamp page with timeout
+    try:
+        logger.debug(f"Navigating to {TS_PAGE_URL}")
+        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
+        logger.debug("Page navigation completed")
+    except TimeoutError:
+        logger.error(f"Timeout navigating to {TS_PAGE_URL} (timeout: {TIMEOUT_LOGIN}ms)")
+        sys.exit()
+    except Exception as e:
+        logger.error(f"Error navigating to page: {e}")
+        sys.exit()
 
     # login when the account check page appears
     page_url = page.url
@@ -168,7 +178,15 @@ if __name__ == "__main__":
 
     frame = page.wait_for_selector("iframe").content_frame()
 
-    logger.info(f"{frame.wait_for_selector('td')=}")
+    # Wait for page content to load (check if table cells are present)
+    try:
+        frame.wait_for_selector("td", timeout=TIMEOUT_LOADING)
+        logger.debug("Page content loaded successfully - ready to check for timestamp button")
+    except TimeoutError:
+        logger.error(
+            f"Timeout waiting for page content to load (timeout: {TIMEOUT_LOADING}ms). Page may not have loaded correctly."
+        )
+        sys.exit()
 
     retry_count = 0
     click_success = False

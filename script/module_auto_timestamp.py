@@ -16,6 +16,7 @@ from const import ConstRestTimePattern, ConstPersonHour
 nest_asyncio.apply()
 
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
+TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
 ID_OFFLINE_AND_REMOTE_WORK = "a25A70000000iuAIAQ"  #  出社+テレワーク
@@ -45,14 +46,44 @@ def login(page: Page, gmail_address: str):
     })
 
     page.bring_to_front()  # ログイン時にウィンドウを前面に表示
-    page.click('button[type="button"]:has-text("次へ")')
-    page.wait_for_selector('input[type="password"]', state="visible")
 
-    with page.expect_navigation():
-        # Inform the user to enter the password manually
-        logger.info("Please enter your password in the browser.")
-        # Wait for a specific element that appears after login
-        page.get_by_title('TeamSpirit').wait_for(state='visible')
+    # Click "Next" button with timeout
+    try:
+        logger.debug("Clicking 'Next' button")
+        page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_DEFAULT)
+    except TimeoutError:
+        logger.error(f"Timeout waiting for 'Next' button (timeout: {TIMEOUT_DEFAULT}ms)")
+        raise
+    except Exception as e:
+        logger.error(f"Error clicking 'Next' button: {e}")
+        raise
+
+    # Wait for password input field with timeout
+    try:
+        logger.debug("Waiting for password input field")
+        page.wait_for_selector('input[type="password"]', state="visible", timeout=TIMEOUT_DEFAULT)
+    except TimeoutError:
+        logger.error(f"Timeout waiting for password input field (timeout: {TIMEOUT_DEFAULT}ms)")
+        raise
+    except Exception as e:
+        logger.error(f"Error waiting for password input field: {e}")
+        raise
+
+    # Wait for navigation after password entry (manual entry by user)
+    try:
+        with page.expect_navigation(timeout=TIMEOUT_LOGIN):
+            # Inform the user to enter the password manually
+            logger.info("Please enter your password in the browser.")
+            # Wait for a specific element that appears after login
+            page.get_by_title("TeamSpirit").wait_for(state="visible", timeout=TIMEOUT_LOGIN)
+    except TimeoutError:
+        logger.error(
+            f"Timeout waiting for login completion (timeout: {TIMEOUT_LOGIN}ms). Please check if login was successful."
+        )
+        raise
+    except Exception as e:
+        logger.error(f"Error during login navigation: {e}")
+        raise
 
     # ウィンドウを画面外に移動
     client.send("Browser.setWindowBounds", {
