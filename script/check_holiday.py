@@ -88,7 +88,7 @@ def main(date_input=None):
         return 0  # Holiday
 
     # Otherwise, mark as a workday
-    with open("WORKDAY", "w") as file:
+    with open(workday_file, "w") as file:
         file.write("WORKDAY\n")
     logger.info("Workday.")
     return 1  # Workday

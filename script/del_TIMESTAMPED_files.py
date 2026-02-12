@@ -29,7 +29,7 @@ def main():
     current_date = datetime.datetime.today().strftime('%Y%m%d')
     logger.info(f"Today's date: {current_date}")
 
-    workday_file = "WORKDAY"
+    workday_file = const.PATH_WORKDAY
     # WORKDAY file management is handled by check_holiday.py
     timestamped_files = ["TIMESTAMPED_IN", "TIMESTAMPED_OUT", "REASON_INPUT"]
     check_holiday_script = "check_holiday.py"
