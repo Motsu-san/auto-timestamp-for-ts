@@ -47,6 +47,7 @@ def main():
                     os.remove(file)
                     logger.info(f"Deleted: {file}")
 
+            # Update WORKDAY file status (create or delete based on today's date)
             if os.path.exists(check_holiday_script):
                 os.system(f"python {check_holiday_script}")
                 logger.info("Updated WORKDAY file status.")
@@ -54,11 +55,13 @@ def main():
             logger.info("WORKDAY file is up to date. No files deleted.")
     else:
         logger.info("There is no WORKDAY file.")
+        # Delete timestamped files
         for file in ["TIMESTAMPED_IN", "TIMESTAMPED_OUT"]:
             if os.path.exists(file):
                 os.remove(file)
                 logger.info(f"Deleted: {file}")
 
+        # Update WORKDAY file status (create or delete based on today's date)
         if os.path.exists(check_holiday_script):
             os.system(f"python {check_holiday_script}")
             logger.info("Updated WORKDAY file status.")
