@@ -22,16 +22,17 @@ rotatingfilehandler = handlers.RotatingFileHandler(
 def download_holiday_file(file_path):
     """Download the Japanese holiday CSV file if it doesn't exist."""
     url = "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv"
+    is_success = False
     try:
         response = requests.get(url)
         response.raise_for_status()
         with open(file_path, "wb") as file:
             file.write(response.content)
         logger.info("Holiday file downloaded successfully.")
+        is_success = True
     except requests.RequestException as e:
         logger.error(f"Error downloading holiday file: {e}")
-        return False
-    return True
+    return is_success
 
 
 def is_holiday(date_str, holiday_file):
