@@ -1,4 +1,5 @@
 import os
+import argparse
 import datetime
 import csv
 import requests  # pyright: ignore
@@ -10,7 +11,6 @@ LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
-logger.setLevel("DEBUG")
 rotatingfilehandler = handlers.RotatingFileHandler(
     LOG_FILE_PATH,
     encoding="utf-8",
@@ -29,7 +29,7 @@ def download_holiday_file(file_path):
             file.write(response.content)
         logger.info("Holiday file downloaded successfully.")
     except requests.RequestException as e:
-        logger.info("Error downloading holiday file:", e)
+        logger.error(f"Error downloading holiday file: {e}")
         return False
     return True
 
@@ -58,7 +58,7 @@ def main(date_input=None):
     else:
         date = datetime.datetime.strptime(date_input, "%Y/%m/%d").date()
 
-    logger.info(f"Checking date: {date}")
+    logger.debug(f"Checking date: {date}")
 
     workday_file = const.PATH_WORKDAY
     is_holiday_today = False
@@ -98,13 +98,26 @@ def main(date_input=None):
 
 
 if __name__ == "__main__":
-    import sys
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(
+        description="Check if a date is a holiday and manage WORKDAY file"
+    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable DEBUG log level")
+    parser.add_argument(
+        "date", nargs="?", help="Date to check in YYYY/MM/DD format (default: today)"
+    )
+    args = parser.parse_args()
 
+    # ログレベルの設定
+    log_level = "DEBUG" if args.debug else "INFO"
+
+    # ロガーとハンドラーのレベルを設定
+    logger.setLevel(log_level)
     handler = StreamHandler()
-    handler.setLevel("INFO")
+    handler.setLevel(log_level)
+    rotatingfilehandler.setLevel(log_level)
+
     basicConfig(handlers=[handler, rotatingfilehandler])
-    basicConfig(level="DEBUG")
     logger.info("=== CHECK HOLIDAY === " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
-    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    exit(main(date_arg))
+    exit(main(args.date))

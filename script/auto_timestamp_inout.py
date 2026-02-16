@@ -41,7 +41,7 @@ MAX_RETRY_COUNT_CLICK = const.MAX_RETRY_COUNT_CLICK
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
-logger.setLevel("DEBUG")
+logger.setLevel("INFO")
 rotatingfilehandler = handlers.RotatingFileHandler(
     LOG_FILE_PATH,
     encoding="utf-8",

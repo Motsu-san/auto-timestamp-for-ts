@@ -1,4 +1,5 @@
 import os
+import argparse
 import datetime
 from logging import StreamHandler, basicConfig, getLogger, handlers
 from pathlib import Path
@@ -9,7 +10,6 @@ LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
-logger.setLevel("DEBUG")
 rotatingfilehandler = handlers.RotatingFileHandler(
     LOG_FILE_PATH,
     encoding="utf-8",
@@ -29,7 +29,7 @@ def get_file_date(filepath):
 
 def main():
     current_date = datetime.datetime.today().strftime("%Y%m%d")
-    logger.info(f"Today's date: {current_date}")
+    logger.debug(f"Today's date: {current_date}")
 
     workday_file = const.PATH_WORKDAY
     # WORKDAY file management is handled by check_holiday.py
@@ -39,7 +39,7 @@ def main():
     if os.path.exists(workday_file):
         logger.info("There is a WORKDAY file.")
         file_date = get_file_date(workday_file)
-        logger.info(f"WORKDAY file date: {file_date}")
+        logger.debug(f"WORKDAY file date: {file_date}")
 
         if file_date and current_date > file_date:
             logger.info("WORKDAY file is older than today's date.")
@@ -70,10 +70,21 @@ def main():
 
 
 if __name__ == "__main__":
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(description="Check and delete TIMESTAMPED files")
+    parser.add_argument("-d", "--debug", action="store_true", help="Enable DEBUG log level")
+    args = parser.parse_args()
+
+    # ログレベルの設定
+    log_level = "DEBUG" if args.debug else "INFO"
+
+    # ロガーとハンドラーのレベルを設定
+    logger.setLevel(log_level)
     handler = StreamHandler()
-    handler.setLevel("INFO")
+    handler.setLevel(log_level)
+    rotatingfilehandler.setLevel(log_level)
+
     basicConfig(handlers=[handler, rotatingfilehandler])
-    basicConfig(level="DEBUG")
     logger.info("=== CHECK TIMESTAMPED FILES === " + current_time.strftime("%Y/%m/%d %H:%M:%S.%f"))
 
     main()
