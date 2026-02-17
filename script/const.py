@@ -1,6 +1,6 @@
 import json
 
-open_json = open("const_pri.json")
+open_json = open("const_pri.json", encoding="utf-8")
 const_pri_dict = json.load(open_json)
 
 # CONST parameter
