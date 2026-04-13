@@ -17,16 +17,20 @@ import module_auto_timestamp as modat
 nest_asyncio.apply()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-d", "--debug", action="store_true",
-                    help="output logs with debug messages")
-parser.add_argument("-D", "--date",
-                    help="Target date in YYYY-MM-DD format. If not specified, today\'s date will be used.")
-parser.add_argument("-L", "--last_month", action="store_true",
-                    help="run on the attendance sheet for last month")
+parser.add_argument("-d", "--debug", action="store_true", help="output logs with debug messages")
+parser.add_argument(
+    "-D",
+    "--date",
+    help="Target date in YYYY-MM-DD format. If not specified, today's date will be used.",
+)
+parser.add_argument(
+    "-L", "--last_month", action="store_true", help="run on the attendance sheet for last month"
+)
 args = parser.parse_args()
 
 # CONST parameter
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
+TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
@@ -34,7 +38,7 @@ TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
 OFFICE_DAYS = const.OFFICE_DAYS
 
-date_pattern = r'^(\d{4}-\d{2}-\d{2})$' # YYYY-MM-DDの形式と完全一致するかチェック
+date_pattern = r"^(\d{4}-\d{2}-\d{2})$"  # YYYY-MM-DDの形式と完全一致するかチェック
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
@@ -80,29 +84,53 @@ if __name__ == "__main__":
     user_data_dir = Path("working_time")
 
     if is_view_window:
-        browser_position='--window-position=0,0'
+        browser_position = "--window-position=0,0"
     else:
-        browser_position='--window-position=3000,3000'
+        browser_position = "--window-position=3000,3000"
 
     browser = playwright.chromium.launch_persistent_context(
         headless=False,
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
         no_viewport=False,
-        args=[browser_position]
+        args=[browser_position],
     )
+    browser.set_default_timeout(TIMEOUT_DEFAULT)
     page = browser.pages[0]
 
-    page.goto(TS_ATTENDANCE_SHEET_PAGE_URL)
+    # Navigate to timestamp page with timeout
+    try:
+        logger.debug(f"Navigating to {TS_ATTENDANCE_SHEET_PAGE_URL}")
+        page.goto(TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
+        logger.debug("Page navigation completed")
+    except TimeoutError:
+        logger.error(f"Timeout navigating to {TS_ATTENDANCE_SHEET_PAGE_URL} (timeout: {TIMEOUT_LOGIN}ms)")
+        sys.exit()
+    except Exception as e:
+        logger.error(f"Error navigating to page: {e}")
+        sys.exit()
+
+    # Wait a moment for any redirects to complete
+    page.wait_for_timeout(TIMEOUT_DEFAULT)
 
     # login when the account check page appears
     page_url = page.url
+    logger.debug(f"Current page URL: {page_url}")
     if "accounts.google.com" in page_url:
+        logger.info("Google account login page detected")
+        logger.debug(f"Navigation chain: {page_url}")
         modat.login(page, ACCOUNT_ADDRESS)
+    else:
+        logger.info(f"Direct page load without Google login - Current URL: {page_url}")
+
+    try:
+        page.wait_for_url(TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
+        logger.debug("login")
+    except TimeoutError:
+        logger.error("Could not transition to the specified page. Time has expired.")
+        sys.exit()
 
     frame = page.wait_for_selector("iframe").content_frame()
-
-    logger.debug("logged in")
 
     info_panel_selector = 'span[data-dojo-attach-point="closeButtonNode"]'
     if modat.does_selector_exist(frame, info_panel_selector, TIMEOUT_DEFAULT):
@@ -162,9 +190,7 @@ if __name__ == "__main__":
         logger.debug(f"{ttv_time_st_selector=}")
         is_visible_ttv_time_st = frame.locator(ttv_time_st_selector).is_visible()
         if not is_visible_ttv_time_st:
-            logger.info(
-                "The page might be approved or still not completed inputting. skipping ..."
-            )
+            logger.info("The page might be approved or still not completed inputting. skipping ...")
             continue
 
         # Get cells
@@ -202,9 +228,7 @@ if __name__ == "__main__":
                     ConstRestTimePattern("Office_day").START_REST_TIME2
                 )
                 is_needed_rest3_input = (
-                    modat.string_to_datetime(
-                        ConstRestTimePattern("Office_day").END_REST_TIME3
-                    )
+                    modat.string_to_datetime(ConstRestTimePattern("Office_day").END_REST_TIME3)
                     <= td_end_time
                 )
                 if is_needed_rest2_input or is_needed_rest3_input:
@@ -213,16 +237,12 @@ if __name__ == "__main__":
                         frame, start_time, end_time, ConstRestTimePattern("Office_day")
                     )
                 else:
-                    logger.info(
-                        f"{"Non working time is not needed to be input. skipping"}"
-                    )
+                    logger.info(f"{"Non working time is not needed to be input. skipping"}")
                 if is_today_only:
                     logger.debug("work in office on Office day")
                     frame.click(ttv_time_st_selector)
                     modat.input_work_place(frame)
-                    frame.wait_for_selector(
-                        "#dlgInpTimeOk", timeout=TIMEOUT_DEFAULT
-                    ).click()
+                    frame.wait_for_selector("#dlgInpTimeOk").click()
                     frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
             else:
                 # Check if rest time input is needed
@@ -230,18 +250,13 @@ if __name__ == "__main__":
                     ConstRestTimePattern("").START_REST_TIME2
                 )
                 is_needed_rest3_input = (
-                    modat.string_to_datetime(ConstRestTimePattern("").END_REST_TIME3)
-                    <= td_end_time
+                    modat.string_to_datetime(ConstRestTimePattern("").END_REST_TIME3) <= td_end_time
                 )
                 if is_needed_rest2_input or is_needed_rest3_input:
                     frame.click(ttv_time_st_selector)
-                    modat.input_non_work_time(
-                        frame, start_time, end_time, ConstRestTimePattern("")
-                    )
+                    modat.input_non_work_time(frame, start_time, end_time, ConstRestTimePattern(""))
                 else:
-                    logger.info(
-                        f"{"Non working time is not needed to be input. skipping"}"
-                    )
+                    logger.info(f"{"Non working time is not needed to be input. skipping"}")
 
             # Input a reason for discrepancy when it is alerted
             td_discrepancy_alert = tds[7]
@@ -250,11 +265,11 @@ if __name__ == "__main__":
                 logger.debug("start inputting a reason for discrepancy")
                 frame.click(selector_discrepancy_alert)
                 # Select option from the discrepancy reason dropdown
-                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
-                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
-                frame.locator('//table[2]/tbody/tr/td[2]/div[1]/select').click()
-                frame.locator('//table[2]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
-                frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
+                frame.locator("//table[1]/tbody/tr/td[2]/div[1]/select").click()
+                frame.locator("//table[1]/tbody/tr/td[2]/div[1]/select").select_option(index=7)
+                frame.locator("//table[2]/tbody/tr/td[2]/div[1]/select").click()
+                frame.locator("//table[2]/tbody/tr/td[2]/div[1]/select").select_option(index=7)
+                frame.locator("//table[2]/tbody/tr/td[2]/div[1]").click()
                 frame.get_by_role("button", name="登録").click()
             else:
                 logger.debug("No discrepancy alert")
@@ -281,9 +296,9 @@ if __name__ == "__main__":
                 logger.debug(f"{daily_access_selector=}")
                 frame.click(daily_access_selector)
                 # Select option from the discrepancy reason dropdown
-                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').click()
-                frame.locator('//table[1]/tbody/tr/td[2]/div[1]/select').select_option(index=7)
-                frame.locator('//table[2]/tbody/tr/td[2]/div[1]').click()
+                frame.locator("//table[1]/tbody/tr/td[2]/div[1]/select").click()
+                frame.locator("//table[1]/tbody/tr/td[2]/div[1]/select").select_option(index=7)
+                frame.locator("//table[2]/tbody/tr/td[2]/div[1]").click()
                 frame.get_by_role("button", name="登録").click()
                 logger.debug("The discrepancy reason has been input")
             else:
