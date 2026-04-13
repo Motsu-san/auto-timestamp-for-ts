@@ -41,7 +41,10 @@ MAX_RETRY_COUNT_CLICK = const.MAX_RETRY_COUNT_CLICK
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
-logger.setLevel("INFO")
+if args.debug:
+    logger.setLevel("DEBUG")
+else:
+    logger.setLevel("INFO")
 rotatingfilehandler = handlers.RotatingFileHandler(
     LOG_FILE_PATH,
     encoding="utf-8",
@@ -146,6 +149,7 @@ if __name__ == "__main__":
         no_viewport=False,
         args=[browser_position],
     )
+    browser.set_default_timeout(TIMEOUT_DEFAULT)
     page = browser.pages[0]
 
     # Navigate to timestamp page with timeout
@@ -160,12 +164,18 @@ if __name__ == "__main__":
         logger.error(f"Error navigating to page: {e}")
         sys.exit()
 
+    # Wait a moment for any redirects to complete
+    page.wait_for_timeout(TIMEOUT_DEFAULT)
+
     # login when the account check page appears
     page_url = page.url
     logger.debug(f"Current page URL: {page_url}")
     if "accounts.google.com" in page_url:
         logger.info("Google account login page detected")
+        logger.debug(f"Navigation chain: {page_url}")
         modat.login(page, ACCOUNT_ADDRESS)
+    else:
+        logger.info(f"Direct page load without Google login - Current URL: {page_url}")
 
     try:
         page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
@@ -196,9 +206,7 @@ if __name__ == "__main__":
 
         while retry_count < MAX_RETRY_COUNT_CLICK and not click_success and not timestamp_confirmed:
             try:
-                # frame.locator(btn_selector).click()
-                frame.wait_for_selector(btn_selector, timeout=TIMEOUT_DEFAULT).click()
-                time.sleep(3)
+                frame.wait_for_selector(btn_selector).click()
                 click_success = True
                 logger.info("Successfully clicked the selector")
             except:
@@ -209,13 +217,14 @@ if __name__ == "__main__":
                 logger.info("Checking timestamp on confirmation page...")
                 try:
                     page.goto(
-                        "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab"
+                        "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
+                        timeout=TIMEOUT_LOADING
                     )
-                    time.sleep(3)  # Wait for page load
+                    time.sleep(1)  # Wait for page load
 
                     is_punch_in = not args.punch_out
                     timestamp_confirmed = modat.check_today_timestamp(
-                        page, is_punch_in, TIMEOUT_LOADING
+                        page, is_punch_in
                     )
 
                     if timestamp_confirmed:
@@ -228,11 +237,11 @@ if __name__ == "__main__":
 
                         # Return to original page
                         if retry_count < MAX_RETRY_COUNT_CLICK:
-                            page.goto(TS_PAGE_URL)
-                            time.sleep(2)
+                            page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
+                            time.sleep(1)  # Wait for page load
                             frame = page.wait_for_selector("iframe").content_frame()
                             # Check if selector exists again
-                            if not modat.does_selector_exist(frame, btn_selector, TIMEOUT_LOADING):
+                            if not modat.does_selector_exist(frame, btn_selector):
                                 logger.info("Selector no longer exists. Stopping retry.")
                                 break
                 except Exception as e:
@@ -240,7 +249,7 @@ if __name__ == "__main__":
                     retry_count += 1
                     if retry_count < MAX_RETRY_COUNT_CLICK:
                         # Return to original page
-                        page.goto(TS_PAGE_URL)
+                        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
                         time.sleep(2)
                         frame = page.wait_for_selector("iframe").content_frame()
 

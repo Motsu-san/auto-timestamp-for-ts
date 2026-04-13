@@ -16,6 +16,7 @@ from const import ConstRestTimePattern, ConstPersonHour
 nest_asyncio.apply()
 
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
+TIMEOUT_LOADING = const.TIMEOUT_LOADING
 TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
@@ -27,50 +28,74 @@ logger.setLevel("INFO")
 
 def login(page: Page, gmail_address: str):
     logger.info("Start login")
-    # CDPセッションを作成
-    client = page.context.new_cdp_session(page)
-
-    # 現在のウィンドウのIDを取得
-    windows = client.send("Browser.getWindowForTarget")
-    window_id = windows["windowId"]
-
-    # ウィンドウを画面内に移動
-    client.send(
-        "Browser.setWindowBounds",
-        {
-            "windowId": window_id,
-            "bounds": {
-                "left": 100,  # 画面左から100px
-                "top": 100,  # 画面上から100px
-                "width": 1920,  # 幅
-                "height": 1280,  # 高さ
-            },
-        },
-    )
-
+    # ログイン中はCDPでウィンドウを動かさない（本人確認画面等でsetWindowBoundsするとクラッシュすることがある）
     page.bring_to_front()  # ログイン時にウィンドウを前面に表示
 
-    # Click "Next" button with timeout
-    try:
-        logger.debug("Clicking 'Next' button")
-        page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_DEFAULT)
-    except TimeoutError:
-        logger.error(f"Timeout waiting for 'Next' button (timeout: {TIMEOUT_DEFAULT}ms)")
-        raise
-    except Exception as e:
-        logger.error(f"Error clicking 'Next' button: {e}")
-        raise
+    # Check if already at TeamSpirit page (already logged in)
+    if "lightning.force.com" in page.url or "teamspiritapp" in page.url:
+        logger.info(f"Already at TeamSpirit page - skipping login. Current URL: {page.url}")
+        return
 
-    # Wait for password input field with timeout
+    # 本人確認など複数「次へ」がある場合に対応: パスワード欄が出るまで「次へ」を押す
+    MAX_NEXT_CLICKS = 5
+    password_visible = False
+    for _ in range(MAX_NEXT_CLICKS):
+        try:
+            if page.locator('input[type="password"]').is_visible():
+                password_visible = True
+                break
+            logger.debug("Clicking 'Next' button")
+            page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_LOADING)
+            page.wait_for_timeout(500)  # 遷移の安定化
+        except TimeoutError:
+            # 「次へ」がない、または既にパスワード画面の可能性
+            if page.locator('input[type="password"]').is_visible():
+                password_visible = True
+                break
+            logger.error(
+                f"Timeout waiting for 'Next' button or password field (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}"
+            )
+            raise
+        except Exception as e:
+            if page.locator('input[type="password"]').is_visible():
+                password_visible = True
+                break
+            logger.error(f"Error clicking 'Next' button: {e}. URL: {page.url}")
+            raise
+
+    if not password_visible:
+        try:
+            page.wait_for_selector(
+                'input[type="password"]', state="visible", timeout=TIMEOUT_LOADING
+            )
+        except TimeoutError:
+            logger.error(f"Timeout waiting for password input field (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}")
+            raise
+        except Exception as e:
+            logger.error(f"Error waiting for password input field: {e}. URL: {page.url}")
+            raise
+
+    # パスワード入力画面になったらウィンドウを画面内に表示（起動時は --window-position=3000,3000 で画面外のため）
     try:
-        logger.debug("Waiting for password input field")
-        page.wait_for_selector('input[type="password"]', state="visible", timeout=TIMEOUT_DEFAULT)
-    except TimeoutError:
-        logger.error(f"Timeout waiting for password input field (timeout: {TIMEOUT_DEFAULT}ms)")
-        raise
+        client = page.context.new_cdp_session(page)
+        windows = client.send("Browser.getWindowForTarget")
+        window_id = windows["windowId"]
+        client.send(
+            "Browser.setWindowBounds",
+            {
+                "windowId": window_id,
+                "bounds": {
+                    "left": 100,
+                    "top": 100,
+                    "width": 1920,
+                    "height": 1280,
+                },
+            },
+        )
+        page.bring_to_front()
     except Exception as e:
-        logger.error(f"Error waiting for password input field: {e}")
-        raise
+        logger.warning(f"Could not move window to foreground for password input (non-fatal): {e}")
+        page.bring_to_front()
 
     # Wait for navigation after password entry (manual entry by user)
     try:
@@ -88,23 +113,28 @@ def login(page: Page, gmail_address: str):
         logger.error(f"Error during login navigation: {e}")
         raise
 
-    # ウィンドウを画面外に移動
-    client.send(
-        "Browser.setWindowBounds",
-        {
-            "windowId": window_id,
-            "bounds": {
-                "left": 3000,  # 画面左から100px
-                "top": 3000,  # 画面上から100px
-                "width": 1920,  # 幅
-                "height": 1280,  # 高さ
+    # ログイン完了後にのみCDPでウィンドウを画面外へ移動（認証中にCDPを触るとクラッシュしやすいため）
+    try:
+        client = page.context.new_cdp_session(page)
+        windows = client.send("Browser.getWindowForTarget")
+        window_id = windows["windowId"]
+        client.send(
+            "Browser.setWindowBounds",
+            {
+                "windowId": window_id,
+                "bounds": {
+                    "left": 3000,
+                    "top": 3000,
+                    "width": 1920,
+                    "height": 1280,
+                },
             },
-        },
-    )
+        )
+    except Exception as e:
+        logger.warning(f"Could not move window off-screen via CDP (non-fatal): {e}")
 
     page.evaluate("window.blur()")  # フォーカスを外す
     logger.debug("Login completed successfully")
-
 
 def does_selector_exist(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):
     try:
@@ -123,7 +153,7 @@ def does_selector_exist_by_text(page: Page, text: str):
 
 
 def is_text_box_input(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):
-    value = frame.input_value(selector)
+    value = frame.input_value(selector, timeout=timeout)
     if value:
         return True
     else:
@@ -189,9 +219,9 @@ def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRe
 
     # Get the flag if my rest time is input
     if is_ampm_paid_holiday:
-        is_start_rest_input = is_text_box_input(frame, "#startRest1", timeout=TIMEOUT_DEFAULT)
+        is_start_rest_input = is_text_box_input(frame, "#startRest1")
     else:
-        is_start_rest_input = is_text_box_input(frame, "#startRest2", timeout=TIMEOUT_DEFAULT)
+        is_start_rest_input = is_text_box_input(frame, "#startRest2")
     logger.debug(f"{is_start_rest_input=}")
 
     button_selector = 'input.pb_btn_plusL[type="button"][title="休憩時間入力行追加"]'
@@ -199,24 +229,24 @@ def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRe
     if not is_start_rest_input:
         if is_needed_rest2_input:
             logger.debug(f"{is_needed_rest2_input=}")
-            frame.wait_for_selector("#startRest2", timeout=TIMEOUT_DEFAULT).fill(
+            frame.wait_for_selector("#startRest2").fill(
                 const.START_REST_TIME2
             )
-            frame.wait_for_selector("#endRest2", timeout=TIMEOUT_DEFAULT).fill(const.END_REST_TIME2)
+            frame.wait_for_selector("#endRest2").fill(const.END_REST_TIME2)
         if is_needed_rest3_input:
             logger.debug(f"{is_needed_rest3_input=}")
             frame.wait_for_selector(button_selector, state="visible")
             frame.click(button_selector)
-            frame.wait_for_selector("#startRest3", timeout=TIMEOUT_DEFAULT).fill(
+            frame.wait_for_selector("#startRest3").fill(
                 const.START_REST_TIME3
             )
-            frame.wait_for_selector("#endRest3", timeout=TIMEOUT_DEFAULT).fill(const.END_REST_TIME3)
-        frame.wait_for_selector("#dlgInpTimeOk", timeout=TIMEOUT_DEFAULT).click()
-        frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
+            frame.wait_for_selector("#endRest3").fill(const.END_REST_TIME3)
+        frame.wait_for_selector("#dlgInpTimeOk").click()
+        frame.wait_for_selector("#dlgInpTimeOk", state="hidden", timeout=TIMEOUT_LOADING)
     else:
         logger.info(f"{"Working time has been already input. skipping"}")
-        frame.wait_for_selector("#dlgInpTimeCancel", timeout=TIMEOUT_DEFAULT).click()
-        frame.wait_for_selector("#dlgInpTimeCancel", state="hidden")
+        frame.wait_for_selector("#dlgInpTimeCancel").click()
+        frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
 
 
 def input_work_place(frame: Frame):
@@ -224,12 +254,12 @@ def input_work_place(frame: Frame):
     if not value == ID_OFFLINE_AND_REMOTE_WORK:
         logger.info(f"{"work location is not updated"}")
         frame.select_option("#workLocationId", value=ID_OFFLINE_AND_REMOTE_WORK)
-        frame.wait_for_selector("#dlgInpTimeOk", timeout=TIMEOUT_DEFAULT).click()
-        frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
+        frame.wait_for_selector("#dlgInpTimeOk").click()
+        frame.wait_for_selector("#dlgInpTimeOk", state="hidden", timeout=TIMEOUT_LOADING)
     else:
         logger.info(f"{"Work location is updated"}")
-        frame.wait_for_selector("#dlgInpTimeCancel", timeout=TIMEOUT_DEFAULT).click()
-        frame.wait_for_selector("#dlgInpTimeCancel", state="hidden")
+        frame.wait_for_selector("#dlgInpTimeCancel").click()
+        frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
 
 
 def input_person_hour(
@@ -246,24 +276,22 @@ def input_person_hour(
     actual_working_time = actual_working_time_message[idx + len(target) :]
     logger.debug(f"{actual_working_time=}")
     # initialize RD1_GI time
-    frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill("")
+    frame.wait_for_selector("#empInputTime0").fill("")
     # Input RD1_NOT_GI time
-    frame.wait_for_selector("#empInputTime1", timeout=TIMEOUT_DEFAULT).fill(const.RD1_NOT_GI)
+    frame.wait_for_selector("#empInputTime1").fill(const.RD1_NOT_GI)
     # Input IN_HOUSE_MEETING time if needed
     if is_tier4_all_hands:
         logger.debug(f"{"TIER IV all hands held"}")
-        frame.wait_for_selector("#empInputTime2", timeout=TIMEOUT_DEFAULT).fill(
+        frame.wait_for_selector("#empInputTime2").fill(
             const.IN_HOUSE_MEETING
         )
     if is_first_workday:
         logger.debug(f"{"Added Attendance related time"}")
-        frame.wait_for_selector("#empInputTime4", timeout=TIMEOUT_DEFAULT).fill(
+        frame.wait_for_selector("#empInputTime4").fill(
             const.ATTENDANCE_RELATED
         )
     # Get total input working time
-    frame.wait_for_selector(
-        "#empWorkRealTime", timeout=TIMEOUT_DEFAULT
-    ).click()  # needed to update empWorkTotalTime
+    frame.wait_for_selector("#empWorkRealTime").click()  # needed to update empWorkTotalTime
     total_input_working_time = frame.wait_for_selector("#empWorkTotalTime").text_content()
     logger.debug(f"{total_input_working_time=}")
     # Get RD1_GI time
@@ -273,9 +301,9 @@ def input_person_hour(
     logger.debug(f"{rd1_gi_working_timedelta=}")
     rd1_gi_working_time = rd1_gi_working_timedelta[:-3]  # In [HH:MM:SS], ":SS" is deleted
     logger.debug(f"{rd1_gi_working_time=}")
-    frame.wait_for_selector("#empInputTime0", timeout=TIMEOUT_DEFAULT).fill(rd1_gi_working_time)
-    frame.wait_for_selector("#empWorkOk", timeout=TIMEOUT_DEFAULT).click()
-    frame.wait_for_selector("#empWorkOk", state="hidden")
+    frame.wait_for_selector("#empInputTime0").fill(rd1_gi_working_time)
+    frame.wait_for_selector("#empWorkOk").click()
+    frame.wait_for_selector("#empWorkOk", state="hidden", timeout=TIMEOUT_LOADING)
 
 
 def check_today_timestamp(page: Page, is_punch_in: bool, timeout=TIMEOUT_DEFAULT) -> bool:
