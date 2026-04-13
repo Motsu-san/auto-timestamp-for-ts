@@ -15,4 +15,5 @@ set YYYYMMDD_TODAY=%YYYY%-%MM%-%DD%
 echo %YYYYMMDD_TODAY%
 
 call "..\..\venv\venv_script\Scripts\activate"
-start /min cmd /c "python auto_timestamp_inout.py -o && python auto_input_non_working_time_and_work_place.py -D %YYYYMMDD_TODAY%"
+pythonw "auto_timestamp_inout.py" -o
+pythonw "auto_input_non_working_time_and_work_place.py" -D %YYYYMMDD_TODAY%

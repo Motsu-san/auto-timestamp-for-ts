@@ -8,4 +8,4 @@ cd /d %~dp0
 
 call "..\..\venv\venv_script\Scripts\activate"
 python "del_TIMESTAMPED_files.py"
-start cmd /c python "auto_timestamp_inout.py" -i
+start /b pythonw "auto_timestamp_inout.py" -i
