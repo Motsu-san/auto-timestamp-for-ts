@@ -57,9 +57,10 @@ if __name__ == "__main__":
         no_viewport=False,
         args=['--window-position=3000,3000']
     )
+    browser.set_default_timeout(TIMEOUT_DEFAULT)
     page = browser.pages[0]
 
-    page.goto(TS_ATTENDANCE_SHEET_PAGE_URL)
+    page.goto(TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
 
     # login when the account check page appears
     page_url = page.url
@@ -160,9 +161,7 @@ if __name__ == "__main__":
                     logger.info("work in office on Friday")
                     frame.click(ttv_time_st_selector)
                     modat.input_work_place(frame)
-                    frame.wait_for_selector(
-                        "#dlgInpTimeOk", timeout=TIMEOUT_DEFAULT
-                    ).click()
+                    frame.wait_for_selector("#dlgInpTimeOk").click()
                     frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
             else:
                 # Check if rest time input is needed
