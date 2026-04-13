@@ -4,7 +4,7 @@ open_json = open("const_pri.json", encoding="utf-8")
 const_pri_dict = json.load(open_json)
 
 # CONST parameter
-TIMEOUT_DEFAULT = 1000.0
+TIMEOUT_DEFAULT = 3000.0
 TIMEOUT_LOADING = 15000.0
 TIMEOUT_LOGIN = 120000.0
 PATH_WORKDAY = "WORKDAY"
