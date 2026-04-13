@@ -1,6 +1,7 @@
 script/holiday.csv
 script/log/*
 script/data/*
+script/working_time/*
 script/const_pri.json
 script/TIMESTAMPED_IN
 script/TIMESTAMPED_OUT
