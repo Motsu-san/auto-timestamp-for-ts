@@ -81,6 +81,7 @@ if __name__ == "__main__":
     is_waiting = os.path.isfile(PATH_WAITING)
     is_needed_reason_input = False
     is_wait_for_sleep = False
+    waiting_file_created = False
     if is_waiting:
         logger.info("previous process existing, finish.")
         sys.exit()
@@ -102,6 +103,7 @@ if __name__ == "__main__":
             if wait_time.total_seconds() > 0:
                 touch_file = Path(PATH_WAITING)
                 touch_file.touch()
+                waiting_file_created = True
                 time.sleep(wait_time.total_seconds())
             if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
                 # Input reason of discrepancy
@@ -268,7 +270,16 @@ if __name__ == "__main__":
     try:
         os.remove(PATH_WAITING)
         logger.info("Removed WAIT file")
-    except:
-        logger.info("There is not WAIT file")
+    except FileNotFoundError:
+        if waiting_file_created:
+            logger.warning(
+                "WAIT file was created in this run but is missing at cleanup"
+            )
+        else:
+            logger.info(
+                "WAIT file was not created"
+            )
+    except OSError as e:
+        logger.warning(f"Failed to remove WAIT file: {e}")
 
     logger.info(selector_type + " finished")
