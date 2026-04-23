@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import datetime
 from logging import getLogger
@@ -183,6 +184,58 @@ def is_holiday(tds: list[ElementHandle], workday_char: str = "出勤日") -> boo
     return False
 
 
+def _normalize_narrow_for_date_parse(text: str) -> str:
+    # 画面によっては全角数字＋U+3000
+    t = (text or "").replace("\u3000", " ")
+    for a, b in zip("０１２３４５６７８９", "0123456789"):
+        t = t.replace(a, b)
+    return t
+
+
+def _parse_day_of_month_from_date_cell_text(text: str) -> str | None:
+    # 「4/23」「23 木」等（スラッシュなし＋曜日）から日付だけ取る。/ 必須の旧条件だと 23 木 行は無視されていた
+    if not text:
+        return None
+    first_line = (text.splitlines() or [""])[0].strip() if text else ""
+    if not first_line:
+        return None
+    t = _normalize_narrow_for_date_parse(first_line)
+    if "/" in t:
+        idx = t.find("/")
+        if idx == -1:
+            return None
+        after = t[idx + 1 :]
+        parts = re.split("[月火水木金土日]", after, maxsplit=1)
+        if not parts or not parts[0].strip():
+            return None
+        return parts[0].strip().zfill(2)
+    m = re.match(r"^(\d{1,2})\s*[月火水木金土日]", t)
+    if m:
+        return m.group(1).zfill(2)
+    return None
+
+
+def _td_work_time_text(td: ElementHandle) -> str:
+    # 時刻が input の value のみのとき、text_content では空になりがち
+    for sel in ("input", "textarea"):
+        inp = td.query_selector(sel)
+        if inp is not None:
+            val = None
+            try:
+                val = inp.input_value()
+            except Exception:
+                pass
+            if val and str(val).strip():
+                return str(val).strip()
+            a = inp.get_attribute("value")
+            if a and a.strip():
+                return a.strip()
+    raw = (td.text_content() or "").strip()
+    if raw:
+        return raw
+    return (td.inner_text() or "").strip()
+
+
 def get_work_times(tds: list[ElementHandle]):
     """
     Gets the start and end times of working from the provided table row data.
@@ -195,8 +248,8 @@ def get_work_times(tds: list[ElementHandle]):
     """
     td_start = tds[4]
     td_end = tds[5]
-    start_time = td_start.text_content().strip()
-    end_time = td_end.text_content().strip()
+    start_time = _td_work_time_text(td_start)
+    end_time = _td_work_time_text(td_end)
 
     logger.debug(f"start_time={start_time}")
     logger.debug(f"end_time={end_time}")
@@ -306,6 +359,29 @@ def input_person_hour(
     frame.wait_for_selector("#empWorkOk", state="hidden", timeout=TIMEOUT_LOADING)
 
 
+def get_attendance_frame(page, timeout: float = TIMEOUT_LOADING):
+    """
+    TeamSpirit 勤怠一覧は #yearMonthList を持つフレームにあり、Lightning では先頭 iframe ではない場合がある。
+    どの子フレームにも該当がないとき、dateRow 検索は常に空になる。
+    """
+    to = max(100.0, float(timeout))
+    n = 0
+    max_loops = int(to / 100.0) + 2
+    while n < max_loops:
+        for fr in list(page.frames):
+            try:
+                if fr.query_selector("#yearMonthList") is not None:
+                    return fr
+            except Exception:
+                pass
+        try:
+            page.wait_for_timeout(100)
+        except Exception:
+            break
+        n += 1
+    return None
+
+
 def check_today_timestamp(page: Page, is_punch_in: bool, timeout=TIMEOUT_DEFAULT) -> bool:
     """
     Check if today's timestamp is recorded on the specified page
@@ -318,11 +394,12 @@ def check_today_timestamp(page: Page, is_punch_in: bool, timeout=TIMEOUT_DEFAULT
     Returns:
         bool: True if timestamp is recorded, False otherwise
     """
-    import re
-
     try:
-        # Wait for iframe
-        frame = page.wait_for_selector("iframe", timeout=timeout).content_frame()
+        eff_to = max(float(timeout), float(TIMEOUT_LOADING))
+        frame = get_attendance_frame(page, eff_to)
+        if frame is None:
+            logger.error("No frame with #yearMonthList; attendance grid may be in a non-default iframe")
+            return False
 
         # Get today's date
         today = datetime.datetime.now()
@@ -333,53 +410,85 @@ def check_today_timestamp(page: Page, is_punch_in: bool, timeout=TIMEOUT_DEFAULT
 
         logger.info(f"Checking timestamp for today: {today_str}")
 
-        # Get year and month
-        year_month = frame.input_value("#yearMonthList")
-        year_from_page = year_month[:4]
-        month_from_page = year_month[4:6]
+        def _get_times_from_row_and_decide(row) -> bool:
+            tds = row.query_selector_all("td")
+            if len(tds) < 6:
+                logger.info("Not enough cells in the row")
+                return False
+            st, en = get_work_times(tds)
+            if is_punch_in:
+                if st and st.strip():
+                    logger.info(f"Punch-in timestamp found: {st}")
+                    return True
+                logger.info("Punch-in timestamp not found")
+                return False
+            if en and en.strip():
+                logger.info(f"Punch-out timestamp found: {en}")
+                return True
+            logger.info("Punch-out timestamp not found")
+            return False
 
-        # Loop through date rows to find today's row
-        for date_row in frame.query_selector_all('tr[id*="dateRow"]'):
-            date_row_text = str(date_row.text_content())
-            idx = date_row_text.find("/")
-            if idx == -1:
-                continue
-            date_row_text = date_row_text[idx + len("/") :]
-            l = re.split("[月火水木金土日]", date_row_text)
-            if len(l) == 0:
-                continue
-            day_from_page = l[0].zfill(2)
-            year_month_day = year_from_page + "-" + month_from_page + "-" + day_from_page
+        # 1) 勤怠一覧: td#ttvTimeStYYYY-MM-DD（勤怠入力スクリプトと同じ。列ズレに依存しない）
+        full_ttv_id = f"ttvTimeSt{today_str}"
+        date_row = None
+        for sel in (
+            f"tr:has(> td#ttvTimeSt{today_str})",
+            f"tr:has(td#ttvTimeSt{today_str})",
+            f"xpath=//tr[.//td[@id='{full_ttv_id}']]",
+        ):
+            date_row = frame.query_selector(sel)
+            if date_row is not None:
+                break
+        if date_row is None and frame.query_selector(f"td[id='{full_ttv_id}']") is not None:
+            date_row = frame.query_selector(f"xpath=//tr[.//td[@id='{full_ttv_id}']]")
 
-            # Check if it's today's row
-            if today_str == year_month_day:
-                # Get cells
-                tds = date_row.query_selector_all("td")
-                if len(tds) < 6:
-                    logger.info("Not enough cells in the row")
+        if date_row is not None:
+            return _get_times_from_row_and_decide(date_row)
+
+        # 2) 従来: テキスト解析。日付は1列目ではなく2列目等の可能性あり
+        year_month = ""
+        try:
+            year_month = frame.input_value("#yearMonthList")
+        except Exception:
+            pass
+        if not year_month or len(year_month) < 6:
+            year_from_page = year
+            month_from_page = month
+            logger.info(f"yearMonthList missing or short ({year_month!r}); using system Y-M for text match")
+        else:
+            year_from_page = year_month[:4]
+            month_from_page = year_month[4:6]
+
+        for dr in frame.query_selector_all('tr[id*="dateRow"]'):
+            for td in dr.query_selector_all("td")[:8]:
+                dt = (td.text_content() or "")
+                dnum = _parse_day_of_month_from_date_cell_text(dt)
+                if not dnum:
+                    continue
+                ymd = f"{year_from_page}-{month_from_page}-{dnum}"
+                if ymd == today_str:
+                    if _get_times_from_row_and_decide(dr):
+                        return True
+                    return False
+            drt = (dr.text_content() or "")
+            dnum2 = _parse_day_of_month_from_date_cell_text(drt)
+            if dnum2:
+                ymd2 = f"{year_from_page}-{month_from_page}-{dnum2}"
+                if ymd2 == today_str:
+                    if _get_times_from_row_and_decide(dr):
+                        return True
                     return False
 
-                # Get start and end times
-                start_time, end_time = get_work_times(tds)
-
-                if is_punch_in:
-                    # Check punch-in (start time)
-                    if start_time and start_time.strip():
-                        logger.info(f"Punch-in timestamp found: {start_time}")
-                        return True
-                    else:
-                        logger.info("Punch-in timestamp not found")
-                        return False
-                else:
-                    # Check punch-out (end time)
-                    if end_time and end_time.strip():
-                        logger.info(f"Punch-out timestamp found: {end_time}")
-                        return True
-                    else:
-                        logger.info("Punch-out timestamp not found")
-                        return False
-
-        logger.info("Today's row not found")
+        ym_dbg = ""
+        try:
+            ym_dbg = frame.input_value("#yearMonthList")
+        except Exception:
+            pass
+        n_drows = len(frame.query_selector_all('tr[id*="dateRow"]'))
+        logger.info(
+            f"Today's row not found (yearMonthList={ym_dbg!r}, dateRow rows={n_drows},"
+            f" ttvSt id={full_ttv_id!r}, frames={len(list(page.frames))})"
+        )
         return False
 
     except Exception as e:

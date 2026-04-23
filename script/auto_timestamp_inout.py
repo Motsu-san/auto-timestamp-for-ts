@@ -39,6 +39,33 @@ PATH_REASON_INPUT = const.PATH_REASON_INPUT
 LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
 MAX_RETRY_COUNT_CLICK = const.MAX_RETRY_COUNT_CLICK
 
+
+def _wait_for_ts_page_frame(page):
+    # iframe 出現後、中の表（td）まで TIMEOUT_LOADING（ms）で待つ
+    try:
+        handle = page.wait_for_selector("iframe", timeout=TIMEOUT_LOADING)
+    except TimeoutError:
+        logger.error(
+            f"Timeout waiting for iframe (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}"
+        )
+        sys.exit(1)
+    frame = handle.content_frame()
+    if frame is None:
+        logger.error(
+            f"iframe has no content frame (not ready or wrong page). URL: {page.url}"
+        )
+        sys.exit(1)
+    try:
+        frame.wait_for_selector("td", timeout=TIMEOUT_LOADING)
+        logger.debug("Page content loaded successfully - ready to check for timestamp button")
+    except TimeoutError:
+        logger.error(
+            f"Timeout waiting for page content to load (timeout: {TIMEOUT_LOADING}ms). Page may not have loaded correctly."
+        )
+        sys.exit(1)
+    return frame
+
+
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)
 if args.debug:
@@ -187,17 +214,7 @@ if __name__ == "__main__":
         logger.error("Could not transition to the specified page. Time has expired.")
         sys.exit()
 
-    frame = page.wait_for_selector("iframe").content_frame()
-
-    # Wait for page content to load (check if table cells are present)
-    try:
-        frame.wait_for_selector("td", timeout=TIMEOUT_LOADING)
-        logger.debug("Page content loaded successfully - ready to check for timestamp button")
-    except TimeoutError:
-        logger.error(
-            f"Timeout waiting for page content to load (timeout: {TIMEOUT_LOADING}ms). Page may not have loaded correctly."
-        )
-        sys.exit()
+    frame = _wait_for_ts_page_frame(page)
 
     retry_count = 0
     click_success = False
@@ -222,7 +239,7 @@ if __name__ == "__main__":
                         "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
                         timeout=TIMEOUT_LOADING
                     )
-                    time.sleep(1)  # Wait for page load
+                    frame = _wait_for_ts_page_frame(page)
 
                     is_punch_in = not args.punch_out
                     timestamp_confirmed = modat.check_today_timestamp(
@@ -240,8 +257,7 @@ if __name__ == "__main__":
                         # Return to original page
                         if retry_count < MAX_RETRY_COUNT_CLICK:
                             page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
-                            time.sleep(1)  # Wait for page load
-                            frame = page.wait_for_selector("iframe").content_frame()
+                            frame = _wait_for_ts_page_frame(page)
                             # Check if selector exists again
                             if not modat.does_selector_exist(frame, btn_selector):
                                 logger.info("Selector no longer exists. Stopping retry.")
@@ -252,8 +268,7 @@ if __name__ == "__main__":
                     if retry_count < MAX_RETRY_COUNT_CLICK:
                         # Return to original page
                         page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
-                        time.sleep(2)
-                        frame = page.wait_for_selector("iframe").content_frame()
+                        frame = _wait_for_ts_page_frame(page)
 
         # Create file only if click succeeded or timestamp confirmed
         if click_success or timestamp_confirmed:
