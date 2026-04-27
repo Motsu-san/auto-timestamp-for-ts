@@ -16,6 +16,12 @@ TIME_DURATION_DISCREPANCY = 1800.0
 PATH_REASON_INPUT = "REASON_INPUT"
 MAX_RETRY_COUNT_CLICK = 3
 
+# Off-screen placement is applied in module_auto_timestamp (before goto), not extra flags. No --start-minimized: it often
+# conflicts with session-restored maximized state and causes long full-screen flashes.
+CHROMIUM_PERSISTENT_LAUNCH_ARGS: list[str] = [
+    "--window-position=0,0",
+]
+
 # private CONST parameter
 ACCOUNT_ADDRESS = const_pri_dict["ACCOUNT_ADDRESS"]
 TS_PAGE_URL = const_pri_dict["TS_PAGE_URL"]

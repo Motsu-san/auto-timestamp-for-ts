@@ -27,17 +27,76 @@ logger = getLogger(__name__)
 logger.setLevel("INFO")
 
 
+def _chromium_bring_window_on_screen(page: Page) -> None:
+    """Bring the window back on-screen for interactive Google login (CDP windowState normal)."""
+    try:
+        client = page.context.new_cdp_session(page)
+        windows = client.send("Browser.getWindowForTarget")
+        window_id = windows["windowId"]
+        client.send(
+            "Browser.setWindowBounds",
+            {
+                "windowId": window_id,
+                "bounds": {
+                    "left": 100,
+                    "top": 100,
+                    "width": 1920,
+                    "height": 1280,
+                    "windowState": "normal",
+                },
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Could not move window on-screen for login (non-fatal): {e}")
+    page.bring_to_front()
+
+
+def minimize_chromium_window_to_taskbar(page: Page) -> None:
+    """Move the window off the primary display (one CDP setWindowBounds). Call before a slow goto to limit maximized flash during load."""
+    try:
+        client = page.context.new_cdp_session(page)
+        windows = client.send("Browser.getWindowForTarget")
+        window_id = windows["windowId"]
+        client.send(
+            "Browser.setWindowBounds",
+            {
+                "windowId": window_id,
+                "bounds": {
+                    "left": 3000,
+                    "top": 3000,
+                    "width": 1200,
+                    "height": 800,
+                    "windowState": "normal",
+                },
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Could not move Chromium window off-screen (non-fatal): {e}")
+
+
+def tuck_chromium_window_before_goto(page: Page) -> None:
+    """Short wait for the native window, then park off-screen before page.goto()."""
+    page.wait_for_timeout(200)
+    minimize_chromium_window_to_taskbar(page)
+
+
+def _chromium_move_window_off_screen(page: Page) -> None:
+    """After login completes, move the window off-screen again (same as minimize_chromium_window_to_taskbar)."""
+    minimize_chromium_window_to_taskbar(page)
+
+
 def login(page: Page, gmail_address: str):
     logger.info("Start login")
-    # ログイン中はCDPでウィンドウを動かさない（本人確認画面等でsetWindowBoundsするとクラッシュすることがある）
-    page.bring_to_front()  # ログイン時にウィンドウを前面に表示
+    page.bring_to_front()
 
     # Check if already at TeamSpirit page (already logged in)
     if "lightning.force.com" in page.url or "teamspiritapp" in page.url:
         logger.info(f"Already at TeamSpirit page - skipping login. Current URL: {page.url}")
         return
 
-    # 本人確認など複数「次へ」がある場合に対応: パスワード欄が出るまで「次へ」を押す
+    _chromium_bring_window_on_screen(page)
+
+    # Google may show several "Next" steps; advance until the password field is visible
     MAX_NEXT_CLICKS = 5
     password_visible = False
     for _ in range(MAX_NEXT_CLICKS):
@@ -47,9 +106,9 @@ def login(page: Page, gmail_address: str):
                 break
             logger.debug("Clicking 'Next' button")
             page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_LOADING)
-            page.wait_for_timeout(500)  # 遷移の安定化
+            page.wait_for_timeout(500)
         except TimeoutError:
-            # 「次へ」がない、または既にパスワード画面の可能性
+            # No "Next" or already on the password step
             if page.locator('input[type="password"]').is_visible():
                 password_visible = True
                 break
@@ -76,28 +135,6 @@ def login(page: Page, gmail_address: str):
             logger.error(f"Error waiting for password input field: {e}. URL: {page.url}")
             raise
 
-    # パスワード入力画面になったらウィンドウを画面内に表示（起動時は --window-position=3000,3000 で画面外のため）
-    try:
-        client = page.context.new_cdp_session(page)
-        windows = client.send("Browser.getWindowForTarget")
-        window_id = windows["windowId"]
-        client.send(
-            "Browser.setWindowBounds",
-            {
-                "windowId": window_id,
-                "bounds": {
-                    "left": 100,
-                    "top": 100,
-                    "width": 1920,
-                    "height": 1280,
-                },
-            },
-        )
-        page.bring_to_front()
-    except Exception as e:
-        logger.warning(f"Could not move window to foreground for password input (non-fatal): {e}")
-        page.bring_to_front()
-
     # Wait for navigation after password entry (manual entry by user)
     try:
         with page.expect_navigation(timeout=TIMEOUT_LOGIN):
@@ -114,27 +151,9 @@ def login(page: Page, gmail_address: str):
         logger.error(f"Error during login navigation: {e}")
         raise
 
-    # ログイン完了後にのみCDPでウィンドウを画面外へ移動（認証中にCDPを触るとクラッシュしやすいため）
-    try:
-        client = page.context.new_cdp_session(page)
-        windows = client.send("Browser.getWindowForTarget")
-        window_id = windows["windowId"]
-        client.send(
-            "Browser.setWindowBounds",
-            {
-                "windowId": window_id,
-                "bounds": {
-                    "left": 3000,
-                    "top": 3000,
-                    "width": 1920,
-                    "height": 1280,
-                },
-            },
-        )
-    except Exception as e:
-        logger.warning(f"Could not move window off-screen via CDP (non-fatal): {e}")
+    _chromium_move_window_off_screen(page)
 
-    page.evaluate("window.blur()")  # フォーカスを外す
+    page.evaluate("window.blur()")
     logger.debug("Login completed successfully")
 
 def does_selector_exist(frame: Frame, selector: str, timeout=TIMEOUT_DEFAULT):

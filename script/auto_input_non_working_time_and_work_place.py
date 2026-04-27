@@ -54,10 +54,8 @@ if __name__ == "__main__":
     handler = StreamHandler()
     if args.debug:
         handler.setLevel("DEBUG")
-        is_view_window = True
     else:
         handler.setLevel("INFO")
-        is_view_window = False
 
     if args.last_month:
         is_last_month = True
@@ -83,22 +81,17 @@ if __name__ == "__main__":
 
     user_data_dir = Path("working_time")
 
-    if is_view_window:
-        browser_position = "--window-position=0,0"
-    else:
-        browser_position = "--window-position=3000,3000"
-
     browser = playwright.chromium.launch_persistent_context(
         headless=False,
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
         no_viewport=False,
-        args=[browser_position],
+        args=const.CHROMIUM_PERSISTENT_LAUNCH_ARGS,
     )
     browser.set_default_timeout(TIMEOUT_DEFAULT)
     page = browser.pages[0]
+    modat.tuck_chromium_window_before_goto(page)
 
-    # Navigate to timestamp page with timeout
     try:
         logger.debug(f"Navigating to {TS_ATTENDANCE_SHEET_PAGE_URL}")
         page.goto(TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
@@ -110,11 +103,11 @@ if __name__ == "__main__":
         logger.error(f"Error navigating to page: {e}")
         sys.exit()
 
-    # Wait a moment for any redirects to complete
     page.wait_for_timeout(TIMEOUT_DEFAULT)
-
-    # login when the account check page appears
     page_url = page.url
+    if "accounts.google.com" not in page_url:
+        modat.minimize_chromium_window_to_taskbar(page)
+
     logger.debug(f"Current page URL: {page_url}")
     if "accounts.google.com" in page_url:
         logger.info("Google account login page detected")

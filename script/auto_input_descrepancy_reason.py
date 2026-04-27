@@ -55,15 +55,17 @@ if __name__ == "__main__":
         user_data_dir=user_data_dir,
         viewport=ViewportSize(width=1920, height=1280),
         no_viewport=False,
-        args=['--window-position=3000,3000']
+        args=const.CHROMIUM_PERSISTENT_LAUNCH_ARGS,
     )
     browser.set_default_timeout(TIMEOUT_DEFAULT)
     page = browser.pages[0]
+    modat.tuck_chromium_window_before_goto(page)
 
     page.goto(TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
-
-    # login when the account check page appears
     page_url = page.url
+    if "accounts.google.com" not in page_url:
+        modat.minimize_chromium_window_to_taskbar(page)
+
     if "accounts.google.com" in page_url:
         modat.login(page, ACCOUNT_ADDRESS)
 
