@@ -1,11 +1,32 @@
-script/holiday.csv
-script/log/*
-script/data/*
-script/working_time/*
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+script/log/
+script/logs/
+
+# Runtime data
+script/data/
+script/working_time/
+
+# Private configuration
 script/const_pri.json
+
+# Runtime state files (created by the automation scripts)
 script/TIMESTAMPED_IN
 script/TIMESTAMPED_OUT
 script/WORKDAY
 script/WAITING
-script/__pycache__/*
 script/REASON_INPUT
+
+# Generated data
+script/holiday.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.claude/
