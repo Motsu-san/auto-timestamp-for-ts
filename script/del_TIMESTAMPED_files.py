@@ -6,7 +6,8 @@ from pathlib import Path
 
 import const
 
-LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
+LOG_FILE_PATH = str(Path(__file__).parent / "log" / "auto_timestamp_inout.log")
+Path(LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 current_time = datetime.datetime.now()
 logger = getLogger(__name__)

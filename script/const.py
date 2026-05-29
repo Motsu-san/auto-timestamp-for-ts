@@ -1,6 +1,8 @@
 import json
+import os
 
-open_json = open("const_pri.json", encoding="utf-8")
+_dir = os.path.dirname(os.path.abspath(__file__))
+open_json = open(os.path.join(_dir, "const_pri.json"), encoding="utf-8")
 const_pri_dict = json.load(open_json)
 
 # CONST parameter

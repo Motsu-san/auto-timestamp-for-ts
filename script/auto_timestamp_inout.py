@@ -36,7 +36,8 @@ TIME_DURATION_DISCREPANCY = const.TIME_DURATION_DISCREPANCY
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_WAITING = const.PATH_WAITING
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
-LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_timestamp_inout.log"
+LOG_FILE_PATH = str(Path(__file__).parent / "log" / "auto_timestamp_inout.log")
+Path(LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
 MAX_RETRY_COUNT_CLICK = const.MAX_RETRY_COUNT_CLICK
 
 

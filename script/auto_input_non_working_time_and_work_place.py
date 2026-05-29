@@ -33,7 +33,8 @@ TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
 TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 WORKDAY_CHAR = "出勤日"
-LOG_FILE_PATH = str(Path("log").absolute()) + r"\auto_input_non_working_time_and_work_place.log"
+LOG_FILE_PATH = str(Path(__file__).parent / "log" / "auto_input_non_working_time_and_work_place.log")
+Path(LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
 OFFICE_DAYS = const.OFFICE_DAYS
