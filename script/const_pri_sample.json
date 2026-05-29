@@ -1,5 +1,30 @@
 {
     "ACCOUNT_ADDRESS": "hogehoge@hoge.jp",
     "TS_PAGE_URL": "https://hoge.lightning.force.com/lightning/page/home",
-    "TS_ATTENDANCE_SHEET_PAGE_URL": "https://hoge.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab"
+    "TS_ATTENDANCE_SHEET_PAGE_URL": "https://hoge.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
+    "START_TIME_STAMP": "09:00",
+    "START_REST_TIME_DEFAULT": "12:00",
+    "END_REST_TIME_DEFAULT": "13:00",
+    "OFFICE_DAYS": [
+        "Friday"
+    ],
+    "PERSON_HOUR": {
+        "RD1_NOT_GI": "01:00",
+        "IN_HOUSE_MEETING": "01:00",
+        "ATTENDANCE_RELATED": "01:00"
+    },
+    "REST_TIME_PATTERNS": {
+        "Office_day": {
+            "START_REST_TIME2": "07:30",
+            "END_REST_TIME2": "09:30",
+            "START_REST_TIME3": "17:00",
+            "END_REST_TIME3": "19:00"
+        },
+        "Other": {
+            "START_REST_TIME2": "07:30",
+            "END_REST_TIME2": "08:30",
+            "START_REST_TIME3": "18:00",
+            "END_REST_TIME3": "19:00"
+        }
+    }
 }
