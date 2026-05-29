@@ -3,6 +3,7 @@ import re
 import sys
 import datetime
 from logging import getLogger
+from urllib.parse import urlparse
 
 import nest_asyncio  # pyright: ignore[reportMissingImports]
 from playwright.sync_api import sync_playwright
@@ -27,6 +28,35 @@ logger = getLogger(__name__)
 logger.setLevel("INFO")
 
 
+def _win32_bring_to_front() -> None:
+    """Win32 API でChromiumウィンドウをOSレベルで前面に出す。"""
+    try:
+        import psutil
+        import win32con
+        import win32gui
+        import win32process
+
+        chromium_pids: set[int] = set()
+        for child in psutil.Process().children(recursive=True):
+            n = child.name().lower()
+            if "chrome" in n or "chromium" in n:
+                chromium_pids.add(child.pid)
+
+        def _cb(hwnd: int, _: object) -> None:
+            if not win32gui.IsWindowVisible(hwnd):
+                return
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            if pid not in chromium_pids:
+                return
+            if win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE) & win32con.WS_CAPTION:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+
+        win32gui.EnumWindows(_cb, None)
+    except Exception as e:
+        logger.warning(f"Win32 foreground attempt failed (non-fatal): {e}")
+
+
 def _chromium_bring_window_on_screen(page: Page) -> None:
     """Bring the window back on-screen for interactive Google login (CDP windowState normal)."""
     try:
@@ -49,6 +79,7 @@ def _chromium_bring_window_on_screen(page: Page) -> None:
     except Exception as e:
         logger.warning(f"Could not move window on-screen for login (non-fatal): {e}")
     page.bring_to_front()
+    _win32_bring_to_front()
 
 
 def minimize_chromium_window_to_taskbar(page: Page) -> None:
@@ -89,8 +120,11 @@ def login(page: Page, gmail_address: str):
     logger.info("Start login")
     page.bring_to_front()
 
-    # Check if already at TeamSpirit page (already logged in)
-    if "lightning.force.com" in page.url or "teamspiritapp" in page.url:
+    # Check if already at TeamSpirit page (already logged in).
+    # Use hostname only — Google SAML redirect URLs embed the TeamSpirit domain
+    # as a query parameter, so a plain substring match on the full URL gives a false positive.
+    _host = urlparse(page.url).hostname or ""
+    if _host.endswith("lightning.force.com") or "teamspiritapp" in _host:
         logger.info(f"Already at TeamSpirit page - skipping login. Current URL: {page.url}")
         return
 
