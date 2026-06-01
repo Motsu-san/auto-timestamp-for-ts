@@ -26,6 +26,9 @@ parser.add_argument(
 parser.add_argument(
     "-L", "--last_month", action="store_true", help="run on the attendance sheet for last month"
 )
+parser.add_argument(
+    "-m", "--manhour_update", action="store_true", help="force update person-hour even if no exclamation alert"
+)
 args = parser.parse_args()
 
 # CONST parameter
@@ -273,7 +276,7 @@ if __name__ == "__main__":
             td_person_hour_text = td_person_hour.text_content()
             logger.debug(f"{td_person_hour_text=}")
             excl_selector = "div.workng.pp_base.pp_exclamatio2"
-            if modat.does_selector_exist(td_person_hour, excl_selector, 100):
+            if args.manhour_update or modat.does_selector_exist(td_person_hour, excl_selector, 100):
                 logger.debug("start inputting person hour")
                 # Start controlling "工数実績入力" on browser
                 frame.click(daily_work_cell_selector)
