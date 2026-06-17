@@ -127,7 +127,11 @@ if __name__ == "__main__":
                 touch_file = Path(PATH_WAITING)
                 touch_file.touch()
                 waiting_file_created = True
-                time.sleep(wait_time.total_seconds())
+                # Use a loop checking wall clock time so that PC sleep/hibernate
+                # does not cause the process to overshoot the target time.
+                while datetime.datetime.now() < start_time_stamp:
+                    remaining = (start_time_stamp - datetime.datetime.now()).total_seconds()
+                    time.sleep(max(min(remaining, 60), 0))
             if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
                 # Input reason of discrepancy
                 is_needed_reason_input = True
