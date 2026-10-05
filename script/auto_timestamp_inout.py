@@ -113,183 +113,191 @@ if __name__ == "__main__":
         logger.info("Not workday")
         sys.exit()
 
-    if not args.punch_out:
-        if not is_timestamp_in:
-            btn_selector = "input#btnStInput"
-            selector_type = "punch-in"
-            make_file = PATH_TIMESTAMP_IN
-            start_time_stamp = datetime.datetime(
-                current_time.year, current_time.month, current_time.day, hour=6, minute=0
-            )
-            wait_time = start_time_stamp - current_time
-            wait_second = math.ceil(wait_time.total_seconds())
-            if wait_time.total_seconds() > 0:
-                touch_file = Path(PATH_WAITING)
-                touch_file.touch()
-                waiting_file_created = True
-                # Use a loop checking wall clock time so that PC sleep/hibernate
-                # does not cause the process to overshoot the target time.
-                while datetime.datetime.now() < start_time_stamp:
-                    remaining = (start_time_stamp - datetime.datetime.now()).total_seconds()
-                    time.sleep(max(min(remaining, 60), 0))
-            if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
-                # Input reason of discrepancy
-                is_needed_reason_input = True
-                touch_file = Path(PATH_REASON_INPUT)
-                touch_file.touch()
-        else:
-            logger.info("Has already punch in")
-            sys.exit()
-    else:
-        if is_timestamp_in and not is_timestamp_out:
-            btn_selector = "input#btnEtInput"
-            selector_type = "punch-out"
-            make_file = PATH_TIMESTAMP_OUT
-            is_wait_for_sleep = True
-        elif is_timestamp_in and is_timestamp_out:
-            logger.info("Has already punch out")
-            sys.exit()
-        else:
-            logger.error("There is something wrong")
-            logger.debug("===== inputs =====")
-            logger.debug(f"{is_waiting=}")
-            logger.debug(f"{is_workday=}")
-            logger.debug(f"{args.punch_out=}")
-            logger.debug(f"{is_timestamp_in=}")
-            logger.debug(f"{is_timestamp_out=}")
-            logger.debug("===== outputs =====")
-            logger.debug(f"{os.path.isfile(PATH_WAITING)=}")
-            logger.debug(f"{is_needed_reason_input=}")
-            sys.exit()
-
-    playwright = sync_playwright().start()
-
-    user_data_dir = Path("working_time")
-
-    browser = playwright.chromium.launch_persistent_context(
-        headless=False,
-        user_data_dir=user_data_dir,
-        viewport=ViewportSize(width=1920, height=1280),
-        no_viewport=False,
-        args=const.CHROMIUM_PERSISTENT_LAUNCH_ARGS,
-    )
-    browser.set_default_timeout(TIMEOUT_DEFAULT)
-    page = browser.pages[0]
-    modat.tuck_chromium_window_before_goto(page)
-
+    # Everything below this point may create the WAITING lock file, so it all
+    # runs inside try/finally to guarantee the lock is released on any exit
+    # path (including sys.exit() calls from timeouts/errors during the
+    # Playwright session). Previously those early exits skipped the cleanup
+    # code at the bottom of the script, leaving a stale WAITING file that
+    # made every subsequent run immediately bail out with
+    # "previous process existing, finish.".
     try:
-        logger.debug(f"Navigating to {TS_PAGE_URL}")
-        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
-        logger.debug("Page navigation completed")
-    except TimeoutError:
-        logger.error(f"Timeout navigating to {TS_PAGE_URL} (timeout: {TIMEOUT_LOGIN}ms)")
-        sys.exit()
-    except Exception as e:
-        logger.error(f"Error navigating to page: {e}")
-        sys.exit()
+        if not args.punch_out:
+            if not is_timestamp_in:
+                btn_selector = "input#btnStInput"
+                selector_type = "punch-in"
+                make_file = PATH_TIMESTAMP_IN
+                start_time_stamp = datetime.datetime(
+                    current_time.year, current_time.month, current_time.day, hour=6, minute=0
+                )
+                wait_time = start_time_stamp - current_time
+                wait_second = math.ceil(wait_time.total_seconds())
+                if wait_time.total_seconds() > 0:
+                    touch_file = Path(PATH_WAITING)
+                    touch_file.touch()
+                    waiting_file_created = True
+                    # Use a loop checking wall clock time so that PC sleep/hibernate
+                    # does not cause the process to overshoot the target time.
+                    while datetime.datetime.now() < start_time_stamp:
+                        remaining = (start_time_stamp - datetime.datetime.now()).total_seconds()
+                        time.sleep(max(min(remaining, 60), 0))
+                if wait_time.total_seconds() >= TIME_DURATION_DISCREPANCY:
+                    # Input reason of discrepancy
+                    is_needed_reason_input = True
+                    touch_file = Path(PATH_REASON_INPUT)
+                    touch_file.touch()
+            else:
+                logger.info("Has already punch in")
+                sys.exit()
+        else:
+            if is_timestamp_in and not is_timestamp_out:
+                btn_selector = "input#btnEtInput"
+                selector_type = "punch-out"
+                make_file = PATH_TIMESTAMP_OUT
+                is_wait_for_sleep = True
+            elif is_timestamp_in and is_timestamp_out:
+                logger.info("Has already punch out")
+                sys.exit()
+            else:
+                logger.error("There is something wrong")
+                logger.debug("===== inputs =====")
+                logger.debug(f"{is_waiting=}")
+                logger.debug(f"{is_workday=}")
+                logger.debug(f"{args.punch_out=}")
+                logger.debug(f"{is_timestamp_in=}")
+                logger.debug(f"{is_timestamp_out=}")
+                logger.debug("===== outputs =====")
+                logger.debug(f"{os.path.isfile(PATH_WAITING)=}")
+                logger.debug(f"{is_needed_reason_input=}")
+                sys.exit()
 
-    page.wait_for_timeout(TIMEOUT_DEFAULT)
-    page_url = page.url
-    if "accounts.google.com" not in page_url:
-        modat.minimize_chromium_window_to_taskbar(page)
+        playwright = sync_playwright().start()
 
-    logger.debug(f"Current page URL: {page_url}")
-    if "accounts.google.com" in page_url:
-        logger.info("Google account login page detected")
-        logger.debug(f"Navigation chain: {page_url}")
-        modat.login(page, ACCOUNT_ADDRESS)
-    else:
-        logger.info(f"Direct page load without Google login - Current URL: {page_url}")
+        user_data_dir = Path("working_time")
 
-    try:
-        page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
-        logger.debug("login")
+        browser = playwright.chromium.launch_persistent_context(
+            headless=False,
+            user_data_dir=user_data_dir,
+            viewport=ViewportSize(width=1920, height=1280),
+            no_viewport=False,
+            args=const.CHROMIUM_PERSISTENT_LAUNCH_ARGS,
+        )
+        browser.set_default_timeout(TIMEOUT_DEFAULT)
+        page = browser.pages[0]
+        modat.tuck_chromium_window_before_goto(page)
 
-    except TimeoutError:
-        logger.error("Could not transition to the specified page. Time has expired.")
-        sys.exit()
+        try:
+            logger.debug(f"Navigating to {TS_PAGE_URL}")
+            page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
+            logger.debug("Page navigation completed")
+        except TimeoutError:
+            logger.error(f"Timeout navigating to {TS_PAGE_URL} (timeout: {TIMEOUT_LOGIN}ms)")
+            sys.exit()
+        except Exception as e:
+            logger.error(f"Error navigating to page: {e}")
+            sys.exit()
 
-    frame = _wait_for_ts_page_frame(page)
+        page.wait_for_timeout(TIMEOUT_DEFAULT)
+        page_url = page.url
+        if "accounts.google.com" not in page_url:
+            modat.minimize_chromium_window_to_taskbar(page)
 
-    retry_count = 0
-    click_success = False
-    timestamp_confirmed = False
+        logger.debug(f"Current page URL: {page_url}")
+        if "accounts.google.com" in page_url:
+            logger.info("Google account login page detected")
+            logger.debug(f"Navigation chain: {page_url}")
+            modat.login(page, ACCOUNT_ADDRESS)
+        else:
+            logger.info(f"Direct page load without Google login - Current URL: {page_url}")
 
-    if modat.does_selector_exist(frame, btn_selector, TIMEOUT_LOADING):
-        logger.info(selector_type + " selector exists")
+        try:
+            page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
+            logger.debug("login")
 
-        while retry_count < MAX_RETRY_COUNT_CLICK and not click_success and not timestamp_confirmed:
-            try:
-                frame.wait_for_selector(btn_selector).click()
-                click_success = True
-                logger.info("Successfully clicked the selector")
-            except:
-                logger.info("Could not click the selector. Time has expired.")
-                click_success = False
+        except TimeoutError:
+            logger.error("Could not transition to the specified page. Time has expired.")
+            sys.exit()
 
-                # If click failed, check on timestamp confirmation page
-                logger.info("Checking timestamp on confirmation page...")
+        frame = _wait_for_ts_page_frame(page)
+
+        retry_count = 0
+        click_success = False
+        timestamp_confirmed = False
+
+        if modat.does_selector_exist(frame, btn_selector, TIMEOUT_LOADING):
+            logger.info(selector_type + " selector exists")
+
+            while retry_count < MAX_RETRY_COUNT_CLICK and not click_success and not timestamp_confirmed:
                 try:
-                    page.goto(
-                        "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
-                        timeout=TIMEOUT_LOADING
-                    )
-                    frame = _wait_for_ts_page_frame(page)
+                    frame.wait_for_selector(btn_selector).click()
+                    click_success = True
+                    logger.info("Successfully clicked the selector")
+                except:
+                    logger.info("Could not click the selector. Time has expired.")
+                    click_success = False
 
-                    is_punch_in = not args.punch_out
-                    timestamp_confirmed = modat.check_today_timestamp(
-                        page, is_punch_in
-                    )
-
-                    if timestamp_confirmed:
-                        logger.info("Timestamp confirmed on the page. No retry needed.")
-                    else:
-                        retry_count += 1
-                        logger.info(
-                            f"Timestamp not found. Retrying... ({retry_count}/{MAX_RETRY_COUNT_CLICK})"
+                    # If click failed, check on timestamp confirmation page
+                    logger.info("Checking timestamp on confirmation page...")
+                    try:
+                        page.goto(
+                            "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
+                            timeout=TIMEOUT_LOADING
                         )
-
-                        # Return to original page
-                        if retry_count < MAX_RETRY_COUNT_CLICK:
-                            page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
-                            frame = _wait_for_ts_page_frame(page)
-                            # Check if selector exists again
-                            if not modat.does_selector_exist(frame, btn_selector):
-                                logger.info("Selector no longer exists. Stopping retry.")
-                                break
-                except Exception as e:
-                    logger.error(f"Error checking timestamp: {e}")
-                    retry_count += 1
-                    if retry_count < MAX_RETRY_COUNT_CLICK:
-                        # Return to original page
-                        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
                         frame = _wait_for_ts_page_frame(page)
 
-        # Create file only if click succeeded or timestamp confirmed
-        if click_success or timestamp_confirmed:
-            touch_file = Path(make_file)
-            touch_file.touch()
-            logger.info(f"Created {make_file} file")
-        else:
-            logger.warning(
-                f"Failed to click and timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
-            )
-    else:
-        logger.error("The " + selector_type + " selector doesn't exist")
+                        is_punch_in = not args.punch_out
+                        timestamp_confirmed = modat.check_today_timestamp(
+                            page, is_punch_in
+                        )
 
-    try:
-        os.remove(PATH_WAITING)
-        logger.info("Removed WAIT file")
-    except FileNotFoundError:
-        if waiting_file_created:
-            logger.warning(
-                "WAIT file was created in this run but is missing at cleanup"
-            )
-        else:
-            logger.info(
-                "WAIT file was not created"
-            )
-    except OSError as e:
-        logger.warning(f"Failed to remove WAIT file: {e}")
+                        if timestamp_confirmed:
+                            logger.info("Timestamp confirmed on the page. No retry needed.")
+                        else:
+                            retry_count += 1
+                            logger.info(
+                                f"Timestamp not found. Retrying... ({retry_count}/{MAX_RETRY_COUNT_CLICK})"
+                            )
 
-    logger.info(selector_type + " finished")
+                            # Return to original page
+                            if retry_count < MAX_RETRY_COUNT_CLICK:
+                                page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
+                                frame = _wait_for_ts_page_frame(page)
+                                # Check if selector exists again
+                                if not modat.does_selector_exist(frame, btn_selector):
+                                    logger.info("Selector no longer exists. Stopping retry.")
+                                    break
+                    except Exception as e:
+                        logger.error(f"Error checking timestamp: {e}")
+                        retry_count += 1
+                        if retry_count < MAX_RETRY_COUNT_CLICK:
+                            # Return to original page
+                            page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
+                            frame = _wait_for_ts_page_frame(page)
+
+            # Create file only if click succeeded or timestamp confirmed
+            if click_success or timestamp_confirmed:
+                touch_file = Path(make_file)
+                touch_file.touch()
+                logger.info(f"Created {make_file} file")
+            else:
+                logger.warning(
+                    f"Failed to click and timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
+                )
+        else:
+            logger.error("The " + selector_type + " selector doesn't exist")
+
+        logger.info(selector_type + " finished")
+    finally:
+        try:
+            os.remove(PATH_WAITING)
+            logger.info("Removed WAIT file")
+        except FileNotFoundError:
+            if waiting_file_created:
+                logger.warning(
+                    "WAIT file was created in this run but is missing at cleanup"
+                )
+            else:
+                logger.info(
+                    "WAIT file was not created"
+                )
+        except OSError as e:
+            logger.warning(f"Failed to remove WAIT file: {e}")
