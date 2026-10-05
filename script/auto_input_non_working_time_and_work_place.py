@@ -207,6 +207,9 @@ if __name__ == "__main__":
             is_work_in_office = True
         else:
             is_work_in_office = False
+        # Work location registered on the sheet (read before any dialog re-renders the row)
+        work_location = modat.get_work_location(date_row)
+        logger.debug(f"{work_location=}")
 
         # Get start and end of working time
         start_time, end_time = modat.get_work_times(tds)
@@ -254,6 +257,17 @@ if __name__ == "__main__":
                     modat.input_non_work_time(frame, start_time, end_time, ConstRestTimePattern(""))
                 else:
                     logger.info(f"{"Non working time is not needed to be input. skipping"}")
+
+            # Check commuter allowances when working in the office
+            # (Wi-Fi detected days have just been set to "出社+テレワーク" above)
+            if is_work_in_office or modat.is_office_work_location(work_location):
+                logger.debug("start inputting allowance")
+                try:
+                    modat.input_allowance(frame, year_month_day)
+                except Exception as e:
+                    logger.warning(f"Failed to input allowance: {e}")
+            else:
+                logger.debug("Not office work. allowance is not input")
 
             # Input a reason for discrepancy when it is alerted
             td_discrepancy_alert = tds[7]

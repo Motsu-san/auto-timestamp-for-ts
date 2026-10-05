@@ -23,6 +23,8 @@ TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
 START_REST_TIME_DEFAULT = "12:00"
 END_REST_TIME_DEFAULT = "13:00"
 ID_OFFLINE_AND_REMOTE_WORK = "a25A70000000iuAIAQ"  #  出社+テレワーク
+OFFICE_WORK_LOCATION_PREFIX = "出社"  # 出社 / 出社+テレワーク / 出社+テレワーク+外出
+ALLOWANCE_NAME_KEYWORD = "通勤手当"  # 通勤手当(往路) / 通勤手当(復路)
 
 logger = getLogger(__name__)
 logger.setLevel("INFO")
@@ -366,6 +368,51 @@ def input_work_place(frame: Frame):
         logger.info(f"{"Work location is updated"}")
         frame.wait_for_selector("#dlgInpTimeCancel").click()
         frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
+
+
+def get_work_location(date_row: ElementHandle) -> str:
+    """Return the work location label shown in the row (e.g. "出社+テレワーク")."""
+    td_work_location = date_row.query_selector("td.vtelework")
+    if td_work_location is None:
+        return ""
+    return str(td_work_location.text_content()).strip()
+
+
+def is_office_work_location(work_location: str) -> bool:
+    # 「出社」「出社+テレワーク」「出社+テレワーク+外出」
+    return work_location.startswith(OFFICE_WORK_LOCATION_PREFIX)
+
+
+def input_allowance(frame: Frame, year_month_day: str):
+    """Check the commuter allowances (outbound/return) in the "手当" dialog and register."""
+    allowance_cell_selector = "td#allowanceCell" + year_month_day
+    if not does_selector_exist(frame, allowance_cell_selector, 100):
+        logger.debug("No allowance cell. skipping")
+        return
+    frame.click(allowance_cell_selector)
+    frame.wait_for_selector("#dialogAllowanceInput", state="visible", timeout=TIMEOUT_LOADING)
+    frame.wait_for_selector("#allowanceTableBody input[type=checkbox]", state="visible")
+
+    is_changed = False
+    for row in frame.locator("#allowanceTableBody tr").all():
+        allowance_name = str(row.text_content()).strip()
+        if ALLOWANCE_NAME_KEYWORD not in allowance_name:
+            continue
+        checkbox = row.locator("input[type=checkbox]")
+        if checkbox.is_checked():
+            logger.debug(f"already checked: {allowance_name}")
+        else:
+            checkbox.check()
+            is_changed = True
+            logger.info(f"checked: {allowance_name}")
+
+    if is_changed:
+        frame.click("#dialogAllowanceInputOk")
+    else:
+        logger.info("Allowance has been already input. skipping")
+        frame.click("#dialogAllowanceInputCancel")
+    frame.wait_for_selector("#dialogAllowanceInput", state="hidden", timeout=TIMEOUT_LOADING)
+    frame.wait_for_selector("#dialogAllowanceInput_underlay", state="hidden", timeout=TIMEOUT_LOADING)
 
 
 def input_person_hour(
