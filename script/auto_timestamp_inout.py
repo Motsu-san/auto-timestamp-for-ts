@@ -262,67 +262,60 @@ if __name__ == "__main__":
         frame = _wait_for_ts_page_frame(page)
 
         retry_count = 0
-        click_success = False
         timestamp_confirmed = False
 
         if modat.does_selector_exist(frame, btn_selector, TIMEOUT_LOADING):
             logger.info(selector_type + " selector exists")
 
-            while retry_count < MAX_RETRY_COUNT_CLICK and not click_success and not timestamp_confirmed:
+            while retry_count < MAX_RETRY_COUNT_CLICK and not timestamp_confirmed:
+                logger.info(f"Attempt {retry_count + 1}/{MAX_RETRY_COUNT_CLICK}: clicking selector")
                 try:
                     frame.wait_for_selector(btn_selector).click()
-                    click_success = True
                     logger.info("Successfully clicked the selector")
-                except:
+                except Exception:
                     logger.info("Could not click the selector. Time has expired.")
-                    click_success = False
 
-                    # If click failed, check on timestamp confirmation page
-                    logger.info("Checking timestamp on confirmation page...")
-                    try:
-                        page.goto(
-                            "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
-                            timeout=TIMEOUT_LOADING
-                        )
+                logger.info("Checking timestamp on confirmation page...")
+                try:
+                    page.goto(
+                        "https://tier4.lightning.force.com/lightning/n/teamspirit__AtkWorkTimeTab",
+                        timeout=TIMEOUT_LOADING
+                    )
+                    frame = _wait_for_ts_page_frame(page)
+
+                    is_punch_in = not args.punch_out
+                    timestamp_confirmed = modat.check_today_timestamp(
+                        page, is_punch_in
+                    )
+
+                    if timestamp_confirmed:
+                        logger.info("Timestamp confirmed on the page. No retry needed.")
+                        break
+
+                    retry_count += 1
+                    logger.info(
+                        f"Timestamp not found. Retrying... ({retry_count}/{MAX_RETRY_COUNT_CLICK})"
+                    )
+                    if retry_count < MAX_RETRY_COUNT_CLICK:
+                        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
+                        frame = _wait_for_ts_page_frame(page)
+                        if not modat.does_selector_exist(frame, btn_selector):
+                            logger.info("Selector no longer exists. Stopping retry.")
+                            break
+                except Exception as e:
+                    logger.error(f"Error checking timestamp: {e}")
+                    retry_count += 1
+                    if retry_count < MAX_RETRY_COUNT_CLICK:
+                        page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
                         frame = _wait_for_ts_page_frame(page)
 
-                        is_punch_in = not args.punch_out
-                        timestamp_confirmed = modat.check_today_timestamp(
-                            page, is_punch_in
-                        )
-
-                        if timestamp_confirmed:
-                            logger.info("Timestamp confirmed on the page. No retry needed.")
-                        else:
-                            retry_count += 1
-                            logger.info(
-                                f"Timestamp not found. Retrying... ({retry_count}/{MAX_RETRY_COUNT_CLICK})"
-                            )
-
-                            # Return to original page
-                            if retry_count < MAX_RETRY_COUNT_CLICK:
-                                page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
-                                frame = _wait_for_ts_page_frame(page)
-                                # Check if selector exists again
-                                if not modat.does_selector_exist(frame, btn_selector):
-                                    logger.info("Selector no longer exists. Stopping retry.")
-                                    break
-                    except Exception as e:
-                        logger.error(f"Error checking timestamp: {e}")
-                        retry_count += 1
-                        if retry_count < MAX_RETRY_COUNT_CLICK:
-                            # Return to original page
-                            page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOADING)
-                            frame = _wait_for_ts_page_frame(page)
-
-            # Create file only if click succeeded or timestamp confirmed
-            if click_success or timestamp_confirmed:
+            if timestamp_confirmed:
                 touch_file = Path(make_file)
                 touch_file.touch()
                 logger.info(f"Created {make_file} file")
             else:
                 logger.warning(
-                    f"Failed to click and timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
+                    f"Timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
                 )
         else:
             logger.error("The " + selector_type + " selector doesn't exist")
