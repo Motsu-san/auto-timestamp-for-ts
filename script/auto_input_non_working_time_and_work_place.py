@@ -40,7 +40,7 @@ LOG_FILE_PATH = str(Path(__file__).parent / "log" / "auto_input_non_working_time
 Path(LOG_FILE_PATH).parent.mkdir(parents=True, exist_ok=True)
 TS_ATTENDANCE_SHEET_PAGE_URL = const.TS_ATTENDANCE_SHEET_PAGE_URL
 PATH_REASON_INPUT = const.PATH_REASON_INPUT
-OFFICE_DAYS = const.OFFICE_DAYS
+OFFICE_SSIDS = const.OFFICE_SSIDS
 
 date_pattern = r"^(\d{4}-\d{2}-\d{2})$"  # YYYY-MM-DDの形式と完全一致するかチェック
 
@@ -147,6 +147,8 @@ if __name__ == "__main__":
 
     # Initialize cnt and flags
     cnt_tuesday = 0
+    # Dates on which this PC connected to the office Wi-Fi
+    office_dates = modat.get_office_dates(OFFICE_SSIDS)
     # Get values of this year and month
     year_month = frame.wait_for_selector("#yearMonthList", timeout=5000).input_value()
     logger.debug(f"{year_month=}")
@@ -203,10 +205,9 @@ if __name__ == "__main__":
         else:
             is_tier4_all_hands = False
 
-        if any(day in td_week_status for day in OFFICE_DAYS):
-            is_work_in_office = True
-        else:
-            is_work_in_office = False
+        is_work_in_office = year_month_day in office_dates
+        if is_work_in_office:
+            logger.info(f"office detected by Wi-Fi log: {year_month_day}")
         # Work location registered on the sheet (read before any dialog re-renders the row)
         work_location = modat.get_work_location(date_row)
         logger.debug(f"{work_location=}")
@@ -238,12 +239,9 @@ if __name__ == "__main__":
                     )
                 else:
                     logger.info(f"{"Non working time is not needed to be input. skipping"}")
-                if is_today_only:
-                    logger.debug("work in office on Office day")
-                    frame.click(ttv_time_st_selector)
-                    modat.input_work_place(frame)
-                    frame.wait_for_selector("#dlgInpTimeOk").click()
-                    frame.wait_for_selector("#dlgInpTimeOk", state="hidden")
+                logger.debug("work in office")
+                frame.click(ttv_time_st_selector)
+                modat.input_work_place(frame)
             else:
                 # Check if rest time input is needed
                 is_needed_rest2_input = td_start_time < modat.string_to_datetime(

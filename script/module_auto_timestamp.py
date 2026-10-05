@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import datetime
+import subprocess
 from logging import getLogger
 from urllib.parse import urlparse
 
@@ -355,6 +356,44 @@ def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRe
         logger.info(f"{"Working time has been already input. skipping"}")
         frame.wait_for_selector("#dlgInpTimeCancel").click()
         frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
+
+
+def get_office_dates(ssids: list[str]) -> set[str]:
+    """Return dates (YYYY-MM-DD) on which this PC connected to any of the given Wi-Fi SSIDs.
+
+    Reads WLAN-AutoConfig event 8001 (connected); Properties[4] is the SSID.
+    """
+    if not ssids:
+        logger.warning("OFFICE_SSIDS is empty. All days are treated as remote work")
+        return set()
+    ps_command = (
+        "Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-WLAN-AutoConfig/Operational'; Id=8001} "
+        "-ErrorAction Stop | ForEach-Object { '{0:yyyy-MM-dd}|{1}' -f $_.TimeCreated, $_.Properties[4].Value }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "[Console]::OutputEncoding = [Text.Encoding]::UTF8; " + ps_command],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=60,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to read Wi-Fi event log: {e}")
+        return set()
+    if result.returncode != 0:
+        logger.warning(f"Failed to read Wi-Fi event log: {result.stderr.strip()}")
+        return set()
+    office_dates = set()
+    for line in result.stdout.splitlines():
+        date, _, ssid = line.strip().partition("|")
+        if ssid in ssids:
+            office_dates.add(date)
+    if not office_dates:
+        logger.warning("No connection to office SSIDs found in Wi-Fi event log")
+    logger.debug(f"{sorted(office_dates)=}")
+    return office_dates
 
 
 def input_work_place(frame: Frame):

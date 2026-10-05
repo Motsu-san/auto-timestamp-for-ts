@@ -32,6 +32,7 @@ START_TIME_STAMP = const_pri_dict["START_TIME_STAMP"]
 START_REST_TIME_DEFAULT = const_pri_dict["START_REST_TIME_DEFAULT"]
 END_REST_TIME_DEFAULT = const_pri_dict["END_REST_TIME_DEFAULT"]
 OFFICE_DAYS = const_pri_dict["OFFICE_DAYS"]
+OFFICE_SSIDS = const_pri_dict.get("OFFICE_SSIDS", [])
 
 
 class ConstRestTimePattern:

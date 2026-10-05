@@ -8,6 +8,9 @@
     "OFFICE_DAYS": [
         "Friday"
     ],
+    "OFFICE_SSIDS": [
+        "hogehoge"
+    ],
     "PERSON_HOUR": {
         "RD1_NOT_GI": "01:00",
         "IN_HOUSE_MEETING": "01:00",
