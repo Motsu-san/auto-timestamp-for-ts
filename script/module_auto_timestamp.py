@@ -119,15 +119,19 @@ def _chromium_move_window_off_screen(page: Page) -> None:
     minimize_chromium_window_to_taskbar(page)
 
 
+def _is_teamspirit_url(url: str) -> bool:
+    # Hostname only — Google SAML redirect URLs embed the TeamSpirit domain
+    # as a query parameter, so a plain substring match on the full URL gives a false positive.
+    host = urlparse(url).hostname or ""
+    return host.endswith("lightning.force.com") or "teamspiritapp" in host
+
+
 def login(page: Page, gmail_address: str):
     logger.info("Start login")
     page.bring_to_front()
 
     # Check if already at TeamSpirit page (already logged in).
-    # Use hostname only — Google SAML redirect URLs embed the TeamSpirit domain
-    # as a query parameter, so a plain substring match on the full URL gives a false positive.
-    _host = urlparse(page.url).hostname or ""
-    if _host.endswith("lightning.force.com") or "teamspiritapp" in _host:
+    if _is_teamspirit_url(page.url):
         logger.info(f"Already at TeamSpirit page - skipping login. Current URL: {page.url}")
         return
 
@@ -172,18 +176,26 @@ def login(page: Page, gmail_address: str):
             logger.error(f"Error waiting for password input field: {e}. URL: {page.url}")
             raise
 
-    # Wait for navigation after password entry (manual entry by user)
+    # Wait for navigation after password entry (manual entry by user).
+    # Login can land on the TeamSpirit home page or, when the script started
+    # from a deep link (e.g. the attendance sheet page), directly on that
+    # deep-linked page instead — it never visits /lightning/page/home in that
+    # case. Waiting on that hardcoded path made this time out after every
+    # deep-link login, even though login had actually succeeded. Wait for any
+    # TeamSpirit page instead, matching the "already logged in" check above.
     try:
-        with page.expect_navigation(timeout=TIMEOUT_LOGIN):
-            # Inform the user to enter the password manually
-            logger.info("Please enter your password in the browser.")
-            # Wait for a specific element that appears after login
-            page.get_by_title("TeamSpirit").wait_for(state="visible", timeout=TIMEOUT_LOGIN)
+        logger.info("Please enter your password in the browser.")
+        page.wait_for_url(lambda url: _is_teamspirit_url(url), timeout=TIMEOUT_LOGIN)
     except TimeoutError:
-        logger.error(
-            f"Timeout waiting for login completion (timeout: {TIMEOUT_LOGIN}ms). Please check if login was successful."
-        )
-        raise
+        current_url = page.url
+        if _is_teamspirit_url(current_url):
+            logger.info(f"Login completed: current URL is already a TeamSpirit page ({current_url})")
+        else:
+            logger.error(
+                f"Timeout waiting for login completion (timeout: {TIMEOUT_LOGIN}ms). "
+                f"Current URL: {current_url}. Please check if login was successful."
+            )
+            raise
     except Exception as e:
         logger.error(f"Error during login navigation: {e}")
         raise
