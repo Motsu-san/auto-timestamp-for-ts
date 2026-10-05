@@ -183,7 +183,8 @@ if __name__ == "__main__":
         )
         browser.set_default_timeout(TIMEOUT_DEFAULT)
         page = browser.pages[0]
-        modat.tuck_chromium_window_before_goto(page)
+        if not args.debug:
+            modat.tuck_chromium_window_before_goto(page)
 
         try:
             logger.debug(f"Navigating to {TS_PAGE_URL}")
@@ -198,8 +199,49 @@ if __name__ == "__main__":
 
         page.wait_for_timeout(TIMEOUT_DEFAULT)
         page_url = page.url
+        # Handle Salesforce intermediate redirect domain that carries the real startURL encoded
+        try:
+            from urllib.parse import unquote, urlparse, parse_qs, urljoin
+
+            if "my.salesforce.com" in page_url and "startURL=" in page_url:
+                qs = urlparse(page_url).query
+                vals = parse_qs(qs).get("startURL")
+                if vals:
+                    decoded = unquote(vals[0])
+                    logger.info(f"Detected Salesforce redirect, navigating to decoded startURL: {decoded}")
+                    try:
+                        # If decoded is a relative path, build an absolute URL based on the current page
+                        if decoded.startswith("/"):
+                            base = f"{urlparse(page_url).scheme}://{urlparse(page_url).netloc}"
+                            decoded_abs = urljoin(base, decoded)
+                        else:
+                            decoded_abs = decoded
+                        page.goto(decoded_abs, timeout=TIMEOUT_LOADING)
+                        page.wait_for_load_state("networkidle", timeout=TIMEOUT_LOADING)
+                        page.wait_for_timeout(TIMEOUT_DEFAULT)
+                        page_url = page.url
+                    except Exception as e:
+                        logger.warning(f"Failed to navigate to decoded startURL: {e}")
+                    # If the decoded startURL presents an IdP selection page, click the IdP button
+                    try:
+                        idp_selector = "button[onclick*='IdpOptions.useIdp']"
+                        handle = page.query_selector(idp_selector)
+                        if handle:
+                            logger.info("IdP selection detected — clicking IdP button")
+                            try:
+                                handle.evaluate("el => el.click()")
+                                page.wait_for_load_state("networkidle", timeout=TIMEOUT_LOADING)
+                                page.wait_for_timeout(TIMEOUT_DEFAULT)
+                                page_url = page.url
+                            except Exception as e:
+                                logger.warning(f"Failed to click IdP button: {e}")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         if "accounts.google.com" not in page_url:
-            modat.minimize_chromium_window_to_taskbar(page)
+            if not args.debug:
+                modat.minimize_chromium_window_to_taskbar(page)
 
         logger.debug(f"Current page URL: {page_url}")
         if "accounts.google.com" in page_url:
