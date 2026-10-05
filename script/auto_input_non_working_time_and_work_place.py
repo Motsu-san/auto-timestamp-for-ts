@@ -34,6 +34,7 @@ args = parser.parse_args()
 # CONST parameter
 TIMEOUT_DEFAULT = const.TIMEOUT_DEFAULT
 TIMEOUT_LOGIN = const.TIMEOUT_LOGIN
+TIMEOUT_LOADING = const.TIMEOUT_LOADING
 ACCOUNT_ADDRESS = const.ACCOUNT_ADDRESS
 WORKDAY_CHAR = "出勤日"
 LOG_FILE_PATH = str(Path(__file__).parent / "log" / "auto_input_non_working_time_and_work_place.log")
@@ -136,8 +137,12 @@ if __name__ == "__main__":
     else:
         logger.info("No_panel")
 
+    frame.wait_for_selector("#dialogInfo_underlay", state="hidden", timeout=TIMEOUT_LOADING)
+
     # Move to previous month
     if is_last_month:
+        # Wait for the calendar widget to finish rendering before clicking
+        frame.wait_for_selector("#prevMonthButton", state="visible", timeout=TIMEOUT_LOADING)
         frame.click("#prevMonthButton")
         # Wait for finishing loading the data
         frame.wait_for_selector("#shim", state="hidden")
@@ -280,6 +285,9 @@ if __name__ == "__main__":
                 frame.locator("//table[2]/tbody/tr/td[2]/div[1]/select").select_option(index=7)
                 frame.locator("//table[2]/tbody/tr/td[2]/div[1]").click()
                 frame.get_by_role("button", name="登録").click()
+                # Wait for the dialog to fully close, otherwise its underlay can still
+                # intercept the next date's click (frame.click(ttv_time_st_selector)).
+                frame.wait_for_selector("#dialogInfo_underlay", state="hidden", timeout=TIMEOUT_LOADING)
             else:
                 logger.debug("No discrepancy alert")
 
@@ -309,6 +317,9 @@ if __name__ == "__main__":
                 frame.locator("//table[1]/tbody/tr/td[2]/div[1]/select").select_option(index=7)
                 frame.locator("//table[2]/tbody/tr/td[2]/div[1]").click()
                 frame.get_by_role("button", name="登録").click()
+                # Wait for the dialog to fully close, otherwise its underlay can still
+                # intercept the next date's click (frame.click(ttv_time_st_selector)).
+                frame.wait_for_selector("#dialogInfo_underlay", state="hidden", timeout=TIMEOUT_LOADING)
                 logger.debug("The discrepancy reason has been input")
             else:
                 logger.debug("Not input the discrepancy reason")
