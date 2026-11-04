@@ -28,14 +28,58 @@ ID_OFFLINE_AND_REMOTE_WORK = "a25A70000000iuAIAQ"  #  出社+テレワーク
 OFFICE_WORK_LOCATION_PREFIX = "出社"  # 出社 / 出社+テレワーク / 出社+テレワーク+外出
 ALLOWANCE_NAME_KEYWORD = "通勤手当"  # 通勤手当(往路) / 通勤手当(復路)
 
+NOTIFY_TITLE = "auto-timestamp-for-ts"
+
 logger = getLogger(__name__)
 logger.setLevel("INFO")
+
+
+def notify_user(message: str, wait_for_ack: bool = False) -> None:
+    """Beep and show a topmost message box without blocking the caller.
+
+    wait_for_ack=True keeps the process alive until the user clicks OK
+    (non-daemon thread); otherwise the box disappears when the process exits.
+    """
+    try:
+        import threading
+        import winsound
+        import win32api
+        import win32con
+
+        winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+        style = (
+            win32con.MB_OK
+            | win32con.MB_ICONWARNING
+            | win32con.MB_SYSTEMMODAL
+            | win32con.MB_SETFOREGROUND
+        )
+        threading.Thread(
+            target=win32api.MessageBox,
+            args=(0, message, NOTIFY_TITLE, style),
+            daemon=not wait_for_ack,
+        ).start()
+    except Exception as e:
+        logger.warning(f"Could not notify user (non-fatal): {e}")
+
+
+def close_notification() -> None:
+    """Close the message box opened by notify_user(), if it is still shown."""
+    try:
+        import win32con
+        import win32gui
+
+        hwnd = win32gui.FindWindow(None, NOTIFY_TITLE)
+        if hwnd:
+            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+    except Exception as e:
+        logger.warning(f"Could not close notification (non-fatal): {e}")
 
 
 def _win32_bring_to_front() -> None:
     """Win32 API でChromiumウィンドウをOSレベルで前面に出す。"""
     try:
         import psutil
+        import win32api
         import win32con
         import win32gui
         import win32process
@@ -54,6 +98,10 @@ def _win32_bring_to_front() -> None:
                 return
             if win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE) & win32con.WS_CAPTION:
                 win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                # Windows refuses SetForegroundWindow from a background process
+                # unless it has just received input; a dummy Alt press lifts that lock.
+                win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
+                win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
                 win32gui.SetForegroundWindow(hwnd)
 
         win32gui.EnumWindows(_cb, None)
@@ -120,11 +168,32 @@ def _chromium_move_window_off_screen(page: Page) -> None:
     minimize_chromium_window_to_taskbar(page)
 
 
-def _is_teamspirit_url(url: str) -> bool:
+def is_teamspirit_url(url: str) -> bool:
     # Hostname only — Google SAML redirect URLs embed the TeamSpirit domain
     # as a query parameter, so a plain substring match on the full URL gives a false positive.
     host = urlparse(url).hostname or ""
     return host.endswith("lightning.force.com") or "teamspiritapp" in host
+
+
+def _is_google_login_url(url: str) -> bool:
+    # Hostname only — Salesforce verification URLs embed accounts.google.com in retURL.
+    return (urlparse(url).hostname or "") == "accounts.google.com"
+
+
+def _advance_to_google_password(page: Page) -> None:
+    """Click Google's "Next" steps until the password field shows. Best effort: on any
+    other step (passkey, 2FA, ...) leave it to the user instead of failing."""
+    MAX_NEXT_CLICKS = 5
+    for _ in range(MAX_NEXT_CLICKS):
+        try:
+            if is_teamspirit_url(page.url) or page.locator('input[type="password"]').is_visible():
+                return
+            logger.debug("Clicking 'Next' button")
+            page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_LOADING)
+            page.wait_for_timeout(500)
+        except Exception as e:
+            logger.warning(f"Could not advance to the password field automatically: {e}. URL: {page.url}")
+            return
 
 
 def login(page: Page, gmail_address: str):
@@ -132,50 +201,17 @@ def login(page: Page, gmail_address: str):
     page.bring_to_front()
 
     # Check if already at TeamSpirit page (already logged in).
-    if _is_teamspirit_url(page.url):
+    if is_teamspirit_url(page.url):
         logger.info(f"Already at TeamSpirit page - skipping login. Current URL: {page.url}")
         return
 
     _chromium_bring_window_on_screen(page)
 
-    # Google may show several "Next" steps; advance until the password field is visible
-    MAX_NEXT_CLICKS = 5
-    password_visible = False
-    for _ in range(MAX_NEXT_CLICKS):
-        try:
-            if page.locator('input[type="password"]').is_visible():
-                password_visible = True
-                break
-            logger.debug("Clicking 'Next' button")
-            page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_LOADING)
-            page.wait_for_timeout(500)
-        except PlaywrightTimeoutError:
-            # No "Next" or already on the password step
-            if page.locator('input[type="password"]').is_visible():
-                password_visible = True
-                break
-            logger.error(
-                f"Timeout waiting for 'Next' button or password field (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}"
-            )
-            raise
-        except Exception as e:
-            if page.locator('input[type="password"]').is_visible():
-                password_visible = True
-                break
-            logger.error(f"Error clicking 'Next' button: {e}. URL: {page.url}")
-            raise
-
-    if not password_visible:
-        try:
-            page.wait_for_selector(
-                'input[type="password"]', state="visible", timeout=TIMEOUT_LOADING
-            )
-        except PlaywrightTimeoutError:
-            logger.error(f"Timeout waiting for password input field (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}")
-            raise
-        except Exception as e:
-            logger.error(f"Error waiting for password input field: {e}. URL: {page.url}")
-            raise
+    if _is_google_login_url(page.url):
+        _advance_to_google_password(page)
+    else:
+        # e.g. Salesforce 2FA / passkey registration or verification pages
+        logger.info(f"Non-Google login/verification page - waiting for manual operation. URL: {page.url}")
 
     # Wait for navigation after password entry (manual entry by user).
     # Login can land on the TeamSpirit home page or, when the script started
@@ -185,11 +221,15 @@ def login(page: Page, gmail_address: str):
     # deep-link login, even though login had actually succeeded. Wait for any
     # TeamSpirit page instead, matching the "already logged in" check above.
     try:
-        logger.info("Please enter your password in the browser.")
-        page.wait_for_url(lambda url: _is_teamspirit_url(url), timeout=TIMEOUT_LOGIN)
+        logger.info("Please complete the login in the browser.")
+        notify_user(
+            "TeamSpirit の打刻のため、ログイン（または追加の認証）が必要です。\n"
+            f"{TIMEOUT_LOGIN / 1000:.0f} 秒以内にブラウザで操作を完了してください。"
+        )
+        page.wait_for_url(lambda url: is_teamspirit_url(url), timeout=TIMEOUT_LOGIN)
     except PlaywrightTimeoutError:
         current_url = page.url
-        if _is_teamspirit_url(current_url):
+        if is_teamspirit_url(current_url):
             logger.info(f"Login completed: current URL is already a TeamSpirit page ({current_url})")
         else:
             logger.error(
@@ -200,6 +240,8 @@ def login(page: Page, gmail_address: str):
     except Exception as e:
         logger.error(f"Error during login navigation: {e}")
         raise
+    finally:
+        close_notification()
 
     _chromium_move_window_off_screen(page)
 

@@ -100,8 +100,8 @@ if __name__ == "__main__":
 
     page.goto(const.TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
     page.wait_for_timeout(TIMEOUT_DEFAULT)
-    if "accounts.google.com" in page.url:
-        logger.info("Google account login page detected")
+    if not modat.is_teamspirit_url(page.url):
+        logger.info("Login or verification page detected")
         modat.login(page, const.ACCOUNT_ADDRESS)
     page.wait_for_url(const.TS_ATTENDANCE_SHEET_PAGE_URL, timeout=TIMEOUT_LOGIN)
 

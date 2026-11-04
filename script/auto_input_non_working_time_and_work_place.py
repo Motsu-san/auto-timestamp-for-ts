@@ -150,13 +150,14 @@ if __name__ == "__main__":
                     pass
     except Exception:
         pass
-    if "accounts.google.com" not in page_url:
+    is_login_needed = not modat.is_teamspirit_url(page_url)
+    if not is_login_needed:
         if not args.debug:
             modat.minimize_chromium_window_to_taskbar(page)
 
     logger.debug(f"Current page URL: {page_url}")
-    if "accounts.google.com" in page_url:
-        logger.info("Google account login page detected")
+    if is_login_needed:
+        logger.info("Login or verification page detected")
         logger.debug(f"Navigation chain: {page_url}")
         modat.login(page, ACCOUNT_ADDRESS)
     else:

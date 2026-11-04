@@ -240,15 +240,27 @@ if __name__ == "__main__":
                         pass
         except Exception:
             pass
-        if "accounts.google.com" not in page_url:
+        # Anything other than a TeamSpirit page (Google login, Salesforce 2FA / passkey
+        # pages, ...) needs the user, so keep the window visible for those.
+        is_login_needed = not modat.is_teamspirit_url(page_url)
+        if not is_login_needed:
             if not args.debug:
                 modat.minimize_chromium_window_to_taskbar(page)
 
         logger.debug(f"Current page URL: {page_url}")
-        if "accounts.google.com" in page_url:
-            logger.info("Google account login page detected")
+        if is_login_needed:
+            logger.info("Login or verification page detected")
             logger.debug(f"Navigation chain: {page_url}")
-            modat.login(page, ACCOUNT_ADDRESS)
+            try:
+                modat.login(page, ACCOUNT_ADDRESS)
+            except Exception:
+                punch_label = "退勤" if args.punch_out else "出勤"
+                modat.notify_user(
+                    f"ログインが完了しなかったため、{punch_label}の打刻に失敗しました。\n"
+                    "TeamSpirit で手動で打刻してください。",
+                    wait_for_ack=True,
+                )
+                sys.exit(1)
         else:
             logger.info(f"Direct page load without Google login - Current URL: {page_url}")
 
