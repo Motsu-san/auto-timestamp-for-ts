@@ -10,6 +10,7 @@ from pathlib import Path
 
 import nest_asyncio  # type: ignore
 from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api._generated import *
 
 import module_auto_timestamp as modat
@@ -45,7 +46,7 @@ def _wait_for_ts_page_frame(page):
     # iframe 出現後、中の表（td）まで TIMEOUT_LOADING（ms）で待つ
     try:
         handle = page.wait_for_selector("iframe", timeout=TIMEOUT_LOADING)
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         logger.error(
             f"Timeout waiting for iframe (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}"
         )
@@ -59,7 +60,7 @@ def _wait_for_ts_page_frame(page):
     try:
         frame.wait_for_selector("td", timeout=TIMEOUT_LOADING)
         logger.debug("Page content loaded successfully - ready to check for timestamp button")
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         logger.error(
             f"Timeout waiting for page content to load (timeout: {TIMEOUT_LOADING}ms). Page may not have loaded correctly."
         )
@@ -190,7 +191,7 @@ if __name__ == "__main__":
             logger.debug(f"Navigating to {TS_PAGE_URL}")
             page.goto(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
             logger.debug("Page navigation completed")
-        except TimeoutError:
+        except PlaywrightTimeoutError:
             logger.error(f"Timeout navigating to {TS_PAGE_URL} (timeout: {TIMEOUT_LOGIN}ms)")
             sys.exit()
         except Exception as e:
@@ -255,7 +256,7 @@ if __name__ == "__main__":
             page.wait_for_url(TS_PAGE_URL, timeout=TIMEOUT_LOGIN)
             logger.debug("login")
 
-        except TimeoutError:
+        except PlaywrightTimeoutError:
             logger.error("Could not transition to the specified page. Time has expired.")
             sys.exit()
 

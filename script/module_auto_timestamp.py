@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import nest_asyncio  # pyright: ignore[reportMissingImports]
 from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api._generated import *
 
 
@@ -148,7 +149,7 @@ def login(page: Page, gmail_address: str):
             logger.debug("Clicking 'Next' button")
             page.click('button[type="button"]:has-text("次へ")', timeout=TIMEOUT_LOADING)
             page.wait_for_timeout(500)
-        except TimeoutError:
+        except PlaywrightTimeoutError:
             # No "Next" or already on the password step
             if page.locator('input[type="password"]').is_visible():
                 password_visible = True
@@ -169,7 +170,7 @@ def login(page: Page, gmail_address: str):
             page.wait_for_selector(
                 'input[type="password"]', state="visible", timeout=TIMEOUT_LOADING
             )
-        except TimeoutError:
+        except PlaywrightTimeoutError:
             logger.error(f"Timeout waiting for password input field (timeout: {TIMEOUT_LOADING}ms). URL: {page.url}")
             raise
         except Exception as e:
@@ -186,7 +187,7 @@ def login(page: Page, gmail_address: str):
     try:
         logger.info("Please enter your password in the browser.")
         page.wait_for_url(lambda url: _is_teamspirit_url(url), timeout=TIMEOUT_LOGIN)
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         current_url = page.url
         if _is_teamspirit_url(current_url):
             logger.info(f"Login completed: current URL is already a TeamSpirit page ({current_url})")
