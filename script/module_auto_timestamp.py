@@ -368,6 +368,45 @@ def get_work_times(tds: list[ElementHandle]):
     return start_time, end_time
 
 
+def _get_existing_rests(frame: Frame) -> list[tuple[datetime.datetime, datetime.datetime]]:
+    """Return (start, end) of every rest row in the time input dialog that has both values."""
+    rests = []
+    n = 1
+    while frame.query_selector(f"#startRest{n}") and frame.query_selector(f"#endRest{n}"):
+        start = frame.input_value(f"#startRest{n}", timeout=TIMEOUT_DEFAULT)
+        end = frame.input_value(f"#endRest{n}", timeout=TIMEOUT_DEFAULT)
+        if start and end:
+            rests.append((string_to_datetime(start), string_to_datetime(end)))
+        n += 1
+    return rests
+
+
+def _overlaps_existing_rest(
+    start: str, end: str, existing_rests: list[tuple[datetime.datetime, datetime.datetime]]
+) -> bool:
+    new_start = string_to_datetime(start)
+    new_end = string_to_datetime(end)
+    for old_start, old_end in existing_rests:
+        if new_start < old_end and old_start < new_end:
+            logger.info(
+                f"Rest {start}-{end} overlaps existing rest "
+                f"{old_start:%H:%M}-{old_end:%H:%M}. skipping"
+            )
+            return True
+    return False
+
+
+def _dialog_text(frame: Frame) -> str:
+    """Best-effort text of the dialog containing #dlgInpTimeOk, for logging."""
+    try:
+        dialog = frame.locator("#dlgInpTimeOk").locator(
+            "xpath=ancestor::*[@role='dialog' or contains(@class, 'ialog')][1]"
+        )
+        return " ".join(dialog.inner_text(timeout=TIMEOUT_DEFAULT).split())
+    except Exception as e:
+        return f"(could not read dialog text: {e})"
+
+
 def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRestTimePattern):
 
     # startRest2
@@ -391,6 +430,18 @@ def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRe
     button_selector = 'input.pb_btn_plusL[type="button"][title="休憩時間入力行追加"]'
     # Skip if my rest time is input
     if not is_start_rest_input:
+        # TeamSpirit rejects a rest that overlaps an existing row, and the dialog stays open
+        existing_rests = _get_existing_rests(frame)
+        logger.debug(f"{existing_rests=}")
+        if is_needed_rest2_input and _overlaps_existing_rest(
+            const.START_REST_TIME2, const.END_REST_TIME2, existing_rests
+        ):
+            is_needed_rest2_input = False
+        if is_needed_rest3_input and _overlaps_existing_rest(
+            const.START_REST_TIME3, const.END_REST_TIME3, existing_rests
+        ):
+            is_needed_rest3_input = False
+
         if is_needed_rest2_input:
             logger.debug(f"{is_needed_rest2_input=}")
             frame.wait_for_selector("#startRest2").fill(
@@ -405,8 +456,22 @@ def input_non_work_time(frame: Frame, td_start: str, td_end: str, const: ConstRe
                 const.START_REST_TIME3
             )
             frame.wait_for_selector("#endRest3").fill(const.END_REST_TIME3)
+
+        if not is_needed_rest2_input and not is_needed_rest3_input:
+            frame.wait_for_selector("#dlgInpTimeCancel").click()
+            frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
+            return
+
         frame.wait_for_selector("#dlgInpTimeOk").click()
-        frame.wait_for_selector("#dlgInpTimeOk", state="hidden", timeout=TIMEOUT_LOADING)
+        try:
+            frame.wait_for_selector("#dlgInpTimeOk", state="hidden", timeout=TIMEOUT_LOADING)
+        except PlaywrightTimeoutError:
+            logger.error(
+                "Rest time dialog did not close after OK. skipping this day. "
+                f"dialog text: {_dialog_text(frame)!r}"
+            )
+            frame.wait_for_selector("#dlgInpTimeCancel").click()
+            frame.wait_for_selector("#dlgInpTimeCancel", state="hidden", timeout=TIMEOUT_LOADING)
     else:
         logger.info(f"{"Working time has been already input. skipping"}")
         frame.wait_for_selector("#dlgInpTimeCancel").click()
