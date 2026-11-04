@@ -516,6 +516,29 @@ def get_office_dates(ssids: list[str]) -> set[str]:
     return office_dates
 
 
+def report_punch_out_event() -> bool:
+    """Write an Application event log entry (source=AutoTimestamp, ID=100) on confirmed punch-out.
+
+    The scheduled task \\User\\force_sleep_on is triggered by this event with a delay
+    and hibernates the PC. The event source must be registered once beforehand as admin.
+    """
+    try:
+        result = subprocess.run(
+            ["eventcreate", "/L", "APPLICATION", "/SO", "AutoTimestamp", "/ID", "100",
+             "/T", "INFORMATION", "/D", "Punch-out confirmed"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to write punch-out event: {e}")
+        return False
+    if result.returncode != 0:
+        logger.warning(f"Failed to write punch-out event: {(result.stderr or result.stdout).strip()}")
+        return False
+    return True
+
+
 def input_work_place(frame: Frame):
     value = frame.input_value("#workLocationId")
     if not value == ID_OFFLINE_AND_REMOTE_WORK:

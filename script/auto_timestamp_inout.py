@@ -326,6 +326,8 @@ if __name__ == "__main__":
                 touch_file = Path(make_file)
                 touch_file.touch()
                 logger.info(f"Created {make_file} file")
+                if is_wait_for_sleep and modat.report_punch_out_event():
+                    logger.info("Reported punch-out event (hibernate scheduled by task)")
             else:
                 logger.warning(
                     f"Timestamp not confirmed after {MAX_RETRY_COUNT_CLICK} retries"
