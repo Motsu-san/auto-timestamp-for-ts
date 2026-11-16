@@ -34,12 +34,31 @@ logger = getLogger(__name__)
 logger.setLevel("INFO")
 
 
+def is_noninteractive_session() -> bool:
+    """True when running in session 0 (no user-visible desktop)."""
+    try:
+        import win32process
+        import win32ts
+
+        return win32ts.ProcessIdToSessionId(win32process.GetCurrentProcessId()) == 0
+    except Exception:
+        return False
+
+
 def notify_user(message: str, wait_for_ack: bool = False) -> None:
     """Beep and show a topmost message box without blocking the caller.
 
     wait_for_ack=True keeps the process alive until the user clicks OK
     (non-daemon thread); otherwise the box disappears when the process exits.
+
+    In session 0 (task set to "run whether user is logged on or not") there is
+    no visible desktop, so nobody can ever click OK. Waiting there would keep
+    the process — and its Chromium holding the profile lock — alive forever,
+    breaking every later run. So the box is skipped in that case.
     """
+    if is_noninteractive_session():
+        logger.warning(f"No interactive desktop (session 0); notification skipped: {message}")
+        return
     try:
         import threading
         import winsound

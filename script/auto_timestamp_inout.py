@@ -254,6 +254,13 @@ if __name__ == "__main__":
             try:
                 modat.login(page, ACCOUNT_ADDRESS)
             except Exception:
+                # Release the browser profile lock before possibly waiting
+                # for the user to acknowledge the notification.
+                try:
+                    browser.close()
+                    playwright.stop()
+                except Exception as e:
+                    logger.warning(f"Failed to close browser: {e}")
                 punch_label = "退勤" if args.punch_out else "出勤"
                 modat.notify_user(
                     f"ログインが完了しなかったため、{punch_label}の打刻に失敗しました。\n"
@@ -336,6 +343,11 @@ if __name__ == "__main__":
             logger.error("The " + selector_type + " selector doesn't exist")
 
         logger.info(selector_type + " finished")
+    except Exception:
+        # pythonw discards stderr, so without this an unexpected error (e.g.
+        # the browser profile being locked) leaves no trace in the log.
+        logger.exception("Unexpected error")
+        sys.exit(1)
     finally:
         try:
             os.remove(PATH_WAITING)
